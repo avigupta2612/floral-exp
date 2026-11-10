@@ -1,0 +1,2968 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FLORA // ETERNAL BLOOM — Interactive 3D Botanical Experience</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Cormorant Garamond, Inter, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Three.js r128 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- GSAP 3.12.2 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #090d16;
+      color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+    }
+
+    #webgl-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      cursor: grab;
+    }
+    #webgl-container:active {
+      cursor: grabbing;
+    }
+
+    /* Glassmorphism surfaces */
+    .glass-panel {
+      background: rgba(12, 16, 26, 0.58);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    .glass-pill {
+      background: rgba(15, 20, 32, 0.48);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-pill:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+    .glass-pill.active {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.28), rgba(244, 114, 182, 0.24));
+      border-color: rgba(251, 191, 36, 0.65);
+      color: #fef3c7;
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.22);
+    }
+
+    /* Custom Range Sliders */
+    input[type="range"].custom-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"].custom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fbbf24;
+      border: 2px solid #fff;
+      box-shadow: 0 0 12px rgba(251, 191, 36, 0.85);
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.2s ease;
+    }
+    input[type="range"].custom-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      background: #fde68a;
+    }
+    input[type="range"].custom-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fbbf24;
+      border: 2px solid #fff;
+      box-shadow: 0 0 12px rgba(251, 191, 36, 0.85);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    /* Subtle text glow */
+    .hero-title-glow {
+      text-shadow: 0 10px 35px rgba(0, 0, 0, 0.65), 0 0 60px rgba(251, 191, 36, 0.15);
+    }
+
+    /* Smooth transitions for hero overlay */
+    .ui-transition {
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .ui-hidden {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateY(12px) scale(0.98);
+    }
+
+    /* Custom cursor ripple indicator */
+    #wind-cursor-ring {
+      position: fixed;
+      width: 44px;
+      height: 44px;
+      border-radius: 9999px;
+      border: 1px solid rgba(253, 230, 138, 0.35);
+      background: radial-gradient(circle, rgba(253, 230, 138, 0.12) 0%, rgba(253, 230, 138, 0) 70%);
+      pointer-events: none;
+      z-index: 10;
+      transform: translate(-50%, -50%);
+      transition: width 0.2s ease, height 0.2s ease, border-color 0.2s ease;
+      mix-blend-mode: screen;
+    }
+  </style>
+</head>
+<body class="relative select-none overflow-hidden">
+
+  <!-- Interactive Wind Cursor Indicator -->
+  <div id="wind-cursor-ring" class="hidden md:block"></div>
+
+  <!-- 3D WebGL Canvas Container -->
+  <div id="webgl-container" aria-label="Interactive 3D Blooming Flower and Meadow Canvas"></div>
+
+  <!-- Soft Vignette & Cinematic Grain Overlay -->
+  <div class="pointer-events-none fixed inset-0 z-10" style="background: radial-gradient(circle at center, transparent 55%, rgba(5, 8, 15, 0.55) 100%);"></div>
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3 sm:px-8 sm:py-5 pointer-events-none">
+    <!-- Brand Identity -->
+    <div class="flex items-center gap-3 pointer-events-auto">
+      <div class="w-9 h-9 rounded-full glass-panel flex items-center justify-center border border-amber-300/30 shadow-inner">
+        <svg class="w-5 h-5 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3C9.5 6.5 9.5 10.5 12 14C14.5 10.5 14.5 6.5 12 3Z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 8C5.5 12 8 14.5 12 14C9.5 10.5 7.5 8.5 5 8Z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 8C16.5 8.5 14.5 10.5 12 14C16 14.5 18.5 12 19 8Z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 14V21"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 18C10 18 12 16.5 12 14.5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-xs tracking-[0.25em] uppercase text-amber-200/90 font-medium">FLORA</span>
+          <span class="text-white/30 text-xs">//</span>
+          <span class="font-mono text-[11px] tracking-[0.18em] uppercase text-white/70">ETERNAL BLOOM</span>
+        </div>
+        <p class="text-[11px] text-white/50 hidden sm:block">Procedural Botanical WebGL Exhibition</p>
+      </div>
+    </div>
+
+    <!-- Right Controls: Live Phase Badge, Audio Synth, Exhibition UI Toggle -->
+    <div class="flex items-center gap-2 sm:gap-3 pointer-events-auto">
+      <!-- Live Camera & Flora Telemetry Badge -->
+      <div class="hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full glass-pill text-xs font-mono text-white/80">
+        <span id="phase-indicator-dot" class="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
+        <span id="phase-label">PHASE I: AWAKENING SPROUT</span>
+      </div>
+
+      <!-- Ambient Botanical Soundscape Toggle -->
+      <button id="btn-audio-toggle" type="button" class="glass-pill px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium text-white/85" title="Toggle Procedural Ambient Harmonic Chimes">
+        <svg id="icon-audio-off" class="w-4 h-4 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5z"/>
+          <line x1="23" y1="9" x2="17" y2="15" stroke-linecap="round"/>
+          <line x1="17" y1="9" x2="23" y2="15" stroke-linecap="round"/>
+        </svg>
+        <svg id="icon-audio-on" class="w-4 h-4 text-amber-300 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+        <span class="hidden sm:inline" id="audio-status-text">Sound Off</span>
+      </button>
+
+      <!-- Exhibition Typography Toggle -->
+      <button id="btn-toggle-ui" type="button" class="glass-pill active px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-medium">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span id="toggle-ui-text">Exhibition UI</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- HERO EDITORIAL OVERLAY (Toggled via "Exhibition UI" button) -->
+  <main id="hero-editorial-overlay" class="ui-transition fixed inset-0 z-20 pointer-events-none flex flex-col justify-center px-6 sm:px-12 lg:px-20 pb-36 sm:pb-28">
+    <div class="max-w-2xl">
+      <!-- Botanical Specimen Tag -->
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-pill mb-4 pointer-events-auto">
+        <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
+        <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-rose-100/90">Specimen 01 // Paeonia Amoris &bull; Sympathetic Meadow</span>
+      </div>
+
+      <!-- Main Exhibition Title -->
+      <h1 class="font-serif text-4xl sm:text-6xl lg:text-7xl font-normal tracking-tight text-white hero-title-glow leading-[1.04]">
+        From a Single Spark, <br />
+        <span class="italic font-normal bg-gradient-to-r from-rose-200 via-amber-200 to-pink-300 bg-clip-text text-transparent">A Thousand Petals Awaken</span>
+      </h1>
+
+      <!-- Subtitle Description -->
+      <p id="hero-dynamic-caption" class="mt-4 sm:mt-5 text-sm sm:text-base text-rose-100/85 max-w-xl leading-relaxed font-light drop-shadow">
+        Watch a tender shoot rise from the dewy earth with spring-driven physics, unfurling into a luminous rose-gold blossom whose awakening ripples outward to bloom an entire romantic valley.
+      </p>
+
+      <!-- Quick Action Pills & Interactive Hints -->
+      <div class="mt-6 flex flex-wrap items-center gap-3 pointer-events-auto">
+        <button id="btn-hero-bloom" type="button" class="px-5 py-2.5 rounded-full bg-gradient-to-r from-rose-400/95 via-amber-300/95 to-pink-400/95 hover:from-rose-300 hover:to-amber-200 text-slate-950 font-medium text-xs sm:text-sm tracking-wide shadow-lg shadow-rose-500/25 transition transform hover:-translate-y-0.5 flex items-center gap-2">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <span id="btn-hero-bloom-text">Replay Growth &amp; Bloom</span>
+        </button>
+
+        <button id="btn-jump-meadow" type="button" class="glass-pill px-4 py-2.5 rounded-full text-xs sm:text-sm text-white/90 font-normal flex items-center gap-2">
+          <span>Expand Full Valley</span>
+          <svg class="w-3.5 h-3.5 text-rose-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Interactive Field Telemetry Cards (Visible on Tablet/Desktop) -->
+      <div class="hidden sm:grid grid-cols-3 gap-3 mt-8 max-w-lg pointer-events-auto">
+        <div class="glass-panel rounded-2xl p-3 border border-white/10">
+          <div class="font-mono text-[10px] uppercase tracking-widest text-rose-300/80">Growth &amp; Anthesis</div>
+          <div id="stat-bloom-pct" class="font-serif text-2xl text-white mt-0.5">0%</div>
+          <div class="text-[11px] text-white/50">Spring-Physics Petals</div>
+        </div>
+        <div class="glass-panel rounded-2xl p-3 border border-white/10">
+          <div class="font-mono text-[10px] uppercase tracking-widest text-amber-300/80">Horizon Expansion</div>
+          <div id="stat-expansion-radius" class="font-serif text-2xl text-white mt-0.5">0m</div>
+          <div class="text-[11px] text-white/50">Sympathetic Wave Bloom</div>
+        </div>
+        <div class="glass-panel rounded-2xl p-3 border border-white/10">
+          <div class="font-mono text-[10px] uppercase tracking-widest text-pink-300/80">Interactive Touch</div>
+          <div id="stat-wind-vel" class="font-serif text-2xl text-white mt-0.5">Tender</div>
+          <div class="text-[11px] text-white/50">Click or Sweep to Ripple</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- INTERACTIVE GESTURE HINT (Top-Right Floating Pill) -->
+  <div id="interaction-hint" class="fixed top-20 right-4 sm:right-8 z-20 pointer-events-none hidden md:flex items-center gap-2.5 px-3.5 py-2 rounded-full glass-pill text-[11px] text-white/75">
+    <span class="inline-block w-2 h-2 rounded-full bg-rose-400"></span>
+    <span>Click anywhere to send a bloom wave &bull; Sweep cursor to caress petals with physics</span>
+  </div>
+
+  <!-- BOTTOM FLOATING GLASSMORPHIC CONTROL DECK -->
+  <footer class="fixed bottom-3 sm:bottom-5 left-3 right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[94%] max-w-5xl z-30">
+    <div class="glass-panel rounded-3xl px-4 py-3.5 sm:px-6 sm:py-4 transition-all duration-300">
+      <!-- Row 1: Timeline Scrubber & Play/Replay Controls -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-5">
+        
+        <!-- Play / Pause / Replay Button -->
+        <div class="flex items-center justify-between sm:justify-start gap-2.5">
+          <button id="btn-play-pause" type="button" class="w-10 h-10 rounded-2xl bg-gradient-to-br from-rose-400 to-amber-300 hover:from-rose-300 hover:to-amber-200 text-slate-950 flex items-center justify-center shadow-md shadow-rose-500/20 transition transform active:scale-95 shrink-0" title="Play / Pause Sequence">
+            <!-- Play Icon -->
+            <svg id="icon-play" class="w-5 h-5 hidden" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <!-- Pause Icon -->
+            <svg id="icon-pause" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+          </button>
+
+          <button id="btn-replay" type="button" class="glass-pill px-3 py-2 rounded-xl text-xs font-mono uppercase tracking-wider text-white/85 flex items-center gap-1.5 shrink-0" title="Restart Sprout & Bloom Sequence">
+            <svg class="w-3.5 h-3.5 text-rose-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v5h5"/>
+            </svg>
+            <span>Replay</span>
+          </button>
+
+          <!-- Mobile-only Percentage Display -->
+          <span id="timeline-pct-mobile" class="sm:hidden font-mono text-xs text-rose-300 ml-auto">0%</span>
+        </div>
+
+        <!-- Scrubber Track & Stage Markers -->
+        <div class="flex-1 flex flex-col justify-center">
+          <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-white/55 mb-1.5 px-0.5">
+            <button type="button" data-seek="0" class="hover:text-rose-300 transition">01. Sprout (0%)</button>
+            <button type="button" data-seek="0.28" class="hover:text-rose-300 transition">02. Hero Bloom (28%)</button>
+            <button type="button" data-seek="0.62" class="hover:text-rose-300 transition">03. Wave Awaken (62%)</button>
+            <button type="button" data-seek="1" class="hover:text-rose-300 transition">04. Eternal Valley (100%)</button>
+          </div>
+          <div class="relative flex items-center">
+            <input id="timeline-scrubber" type="range" min="0" max="1" step="0.001" value="0" class="custom-slider" aria-label="Growth, Bloom and Meadow Expansion Timeline Scrubber" />
+          </div>
+        </div>
+
+        <!-- Desktop Timeline Readout -->
+        <div class="hidden sm:flex flex-col items-end justify-center min-w-[68px]">
+          <span class="font-mono text-[10px] uppercase tracking-widest text-white/45">TIMELINE</span>
+          <span id="timeline-pct-desktop" class="font-mono text-sm font-medium text-rose-300">0%</span>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="h-px bg-white/10 my-3"></div>
+
+      <!-- Row 2: Time-of-Day Lighting Switcher & Wind Intensity Controls -->
+      <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        
+        <!-- Time-of-Day Lighting Presets -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+          <span class="font-mono text-[10px] uppercase tracking-wider text-white/50 mr-1.5 shrink-0">Atmosphere:</span>
+          
+          <button type="button" data-lighting="auto" class="lighting-btn glass-pill active px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0">
+            <span class="w-2 h-2 rounded-full bg-gradient-to-r from-sky-300 via-rose-400 to-amber-300"></span>
+            <span>Story Sync</span>
+          </button>
+
+          <button type="button" data-lighting="romantic" class="lighting-btn glass-pill px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0">
+            <span class="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_8px_#fb7185]"></span>
+            <span>Rose Sunset</span>
+          </button>
+
+          <button type="button" data-lighting="golden" class="lighting-btn glass-pill px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span>Golden Hour</span>
+          </button>
+
+          <button type="button" data-lighting="twilight" class="lighting-btn glass-pill px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0">
+            <span class="w-2 h-2 rounded-full bg-fuchsia-400 shadow-[0_0_8px_#e879f9]"></span>
+            <span>Starlit Romance</span>
+          </button>
+        </div>
+
+        <!-- Wind Intensity Slider & Romantic Petal Shower Trigger -->
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2.5 flex-1 md:w-52">
+            <svg class="w-4 h-4 text-rose-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+            </svg>
+            <span class="font-mono text-[10px] uppercase tracking-wider text-white/60 shrink-0">Breeze:</span>
+            <input id="wind-slider" type="range" min="0.1" max="2.5" step="0.05" value="1.0" class="custom-slider" aria-label="Wind Intensity" />
+            <span id="wind-value-label" class="font-mono text-xs text-rose-300 w-9 text-right shrink-0">1.0x</span>
+          </div>
+
+          <button id="btn-wind-gust" type="button" class="glass-pill px-3 py-1.5 rounded-xl text-xs font-medium text-rose-200 hover:text-white flex items-center gap-1.5 shrink-0" title="Send a romantic petal shower and physics breeze across the flowers">
+            <span>Petal Breeze</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </footer>
+
+  <!-- MAIN APPLICATION SCRIPT -->
+  <script>
+    window.onload = function () {
+      /* ==========================================================================
+       * 1. GLOBAL STATE & SPRING-PHYSICS CONFIGURATION
+       * ========================================================================== */
+      const state = {
+        timelineProgress: 0.0,     // 0.0 = Sprout in Soil, 0.28 = Stem Grown & Bud Awakening, 0.55 = Full Hero Bloom + Wave Start, 1.0 = Full Romantic Meadow
+        stemGrowth: 0.0,           // [0..1] Physical stem elongation & uncurling from earth
+        bloomAmount: 0.0,          // [0..1] Hero flower anthesis
+        expansionRadius: 0.0,      // [0..75] Radial wave distance in meters that triggers surrounding meadow growth & blooming
+        cameraPullback: 0.0,
+        isPlaying: true,
+        lightingMode: 'auto',      // 'auto' | 'romantic' | 'golden' | 'twilight'
+        windStrength: 1.0,
+        windGustBoost: 0.0,
+        uiVisible: true,
+        audioEnabled: false,
+        // Pointer & 3D interaction state
+        pointerNDC: new THREE.Vector2(0, 0),
+        pointerSmooth: new THREE.Vector2(0, 0),
+        mouseWorldPos: new THREE.Vector3(0, -100, 0),
+        mouseWorldVel: new THREE.Vector3(0, 0, 0),
+        lastMouseWorldPos: new THREE.Vector3(0, -100, 0),
+        isDraggingOrbit: false,
+        dragMoved: false,
+        dragStart: new THREE.Vector2(0, 0),
+        userOrbitOffset: new THREE.Vector2(0, 0),
+        targetOrbitOffset: new THREE.Vector2(0, 0),
+        // Interactive click wave ring
+        clickWaveOrigin: new THREE.Vector3(0, 0, 0),
+        clickWaveRadius: -10.0,
+        clickWaveStrength: 0.0
+      };
+
+      // Second-order Hooke's Law Spring-Damper solver for organic botanical physics
+      class SpringValue {
+        constructor(initial = 0, stiffness = 26.0, damping = 5.2) {
+          this.value = initial;
+          this.target = initial;
+          this.velocity = 0;
+          this.stiffness = stiffness;
+          this.damping = damping;
+        }
+        impulse(force) {
+          this.velocity += force;
+        }
+        update(dt) {
+          const force = (this.target - this.value) * this.stiffness;
+          this.velocity += force * dt;
+          this.velocity *= Math.exp(-this.damping * dt);
+          this.value += this.velocity * dt;
+          return this.value;
+        }
+      }
+
+      // Global Hero Stem & Head Physics Springs (react to growth, wind gusts, and cursor touch)
+      const heroSprings = {
+        stemBendX: new SpringValue(0, 22, 4.2),
+        stemBendZ: new SpringValue(0, 22, 4.2),
+        headNod: new SpringValue(0.65, 18, 3.8), // Heavy nodding bud when sprouting, lifts gracefully as it blooms
+        bloomScale: new SpringValue(0.18, 20, 4.5)
+      };
+
+      /* ==========================================================================
+       * 2. LIGHTING PALETTES (Dawn Mist, Golden Hour, Romantic Rose Sunset, Starlit Romance)
+       * ========================================================================== */
+      const palettes = {
+        dawn: {
+          skyZenith: new THREE.Color('#121d33'),
+          skyHorizon: new THREE.Color('#8ca0ba'),
+          sunGlow: new THREE.Color('#ffd3c4'),
+          fogColor: new THREE.Color('#5a6f86'),
+          fogDensity: 0.018,
+          ambientColor: new THREE.Color('#748cab'),
+          ambientIntensity: 0.78,
+          sunColor: new THREE.Color('#ffe0c2'),
+          sunIntensity: 1.45,
+          rimColor: new THREE.Color('#a3c9e8'),
+          rimIntensity: 0.95,
+          sunDir: new THREE.Vector3(0.42, 0.19, -0.88).normalize(),
+          bioGlow: 0.15
+        },
+        golden: {
+          skyZenith: new THREE.Color('#1f2752'),
+          skyHorizon: new THREE.Color('#f79d65'),
+          sunGlow: new THREE.Color('#ffe494'),
+          fogColor: new THREE.Color('#db8b6b'),
+          fogDensity: 0.0082,
+          ambientColor: new THREE.Color('#fca37d'),
+          ambientIntensity: 0.88,
+          sunColor: new THREE.Color('#ffd175'),
+          sunIntensity: 2.35,
+          rimColor: new THREE.Color('#fde68a'),
+          rimIntensity: 1.55,
+          sunDir: new THREE.Vector3(0.30, 0.28, -0.91).normalize(),
+          bioGlow: 0.25
+        },
+        romantic: {
+          skyZenith: new THREE.Color('#1d1438'),
+          skyHorizon: new THREE.Color('#f47296'),
+          sunGlow: new THREE.Color('#fecdd3'),
+          fogColor: new THREE.Color('#c86485'),
+          fogDensity: 0.0078,
+          ambientColor: new THREE.Color('#f48fb1'),
+          ambientIntensity: 0.92,
+          sunColor: new THREE.Color('#ffb3c6'),
+          sunIntensity: 2.45,
+          rimColor: new THREE.Color('#fde047'),
+          rimIntensity: 1.75,
+          sunDir: new THREE.Vector3(0.18, 0.24, -0.95).normalize(),
+          bioGlow: 0.48
+        },
+        twilight: {
+          skyZenith: new THREE.Color('#040512'),
+          skyHorizon: new THREE.Color('#241542'),
+          sunGlow: new THREE.Color('#c084fc'),
+          fogColor: new THREE.Color('#130e29'),
+          fogDensity: 0.0055,
+          ambientColor: new THREE.Color('#5b21b6'),
+          ambientIntensity: 0.82,
+          sunColor: new THREE.Color('#e879f9'),
+          sunIntensity: 1.25,
+          rimColor: new THREE.Color('#38bdf8'),
+          rimIntensity: 1.95,
+          sunDir: new THREE.Vector3(-0.22, 0.38, -0.89).normalize(),
+          bioGlow: 1.55
+        }
+      };
+
+      // Active interpolated lighting state
+      const activeLight = {
+        skyZenith: palettes.dawn.skyZenith.clone(),
+        skyHorizon: palettes.dawn.skyHorizon.clone(),
+        sunGlow: palettes.dawn.sunGlow.clone(),
+        fogColor: palettes.dawn.fogColor.clone(),
+        fogDensity: palettes.dawn.fogDensity,
+        ambientColor: palettes.dawn.ambientColor.clone(),
+        ambientIntensity: palettes.dawn.ambientIntensity,
+        sunColor: palettes.dawn.sunColor.clone(),
+        sunIntensity: palettes.dawn.sunIntensity,
+        rimColor: palettes.dawn.rimColor.clone(),
+        rimIntensity: palettes.dawn.rimIntensity,
+        sunDir: palettes.dawn.sunDir.clone(),
+        bioGlow: palettes.dawn.bioGlow
+      };
+
+      /* ==========================================================================
+       * 3. THREE.JS SCENE, CAMERA & RENDERER INITIALIZATION
+       * ========================================================================== */
+      const container = document.getElementById('webgl-container');
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(activeLight.fogColor.getHex(), activeLight.fogDensity);
+
+      const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.08, 220);
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      container.appendChild(renderer.domElement);
+
+      /* ==========================================================================
+       * 4. MATHEMATICAL TERRAIN FUNCTION (Shared by Ground, Grass & Wildflowers)
+       * ========================================================================== */
+      function getTerrainHeight(x, z) {
+        const r2 = x * x + z * z;
+        const heroFlatten = THREE.MathUtils.smoothstep(Math.sqrt(r2), 1.4, 8.5);
+        const hills =
+          Math.sin(x * 0.075 + 0.4) * Math.cos(z * 0.065) * 2.1 +
+          Math.sin(x * 0.18 - z * 0.14) * 0.65 +
+          Math.cos(z * 0.04 - 1.2) * 1.6;
+        return hills * heroFlatten;
+      }
+
+      /* ==========================================================================
+       * 5. PROCEDURAL ATMOSPHERIC SKY DOME & ROMANTIC SUNSET RAYS
+       * ========================================================================== */
+      const skyUniforms = {
+        uZenithColor: { value: activeLight.skyZenith },
+        uHorizonColor: { value: activeLight.skyHorizon },
+        uSunGlowColor: { value: activeLight.sunGlow },
+        uSunDir: { value: activeLight.sunDir },
+        uTime: { value: 0 },
+        uBioGlow: { value: activeLight.bioGlow }
+      };
+
+      const skyGeo = new THREE.SphereGeometry(175, 48, 32);
+      const skyMat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        uniforms: skyUniforms,
+        vertexShader: `
+          varying vec3 vWorldPos;
+          void main() {
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vWorldPos = wp.xyz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 uZenithColor;
+          uniform vec3 uHorizonColor;
+          uniform vec3 uSunGlowColor;
+          uniform vec3 uSunDir;
+          uniform float uTime;
+          uniform float uBioGlow;
+          varying vec3 vWorldPos;
+
+          // Procedural hash for crisp shader starfield
+          float hash31(vec3 p) {
+            p = fract(p * vec3(443.8975, 397.2973, 491.1871));
+            p += dot(p.zxy, p.yxz + 19.19);
+            return fract(p.x * p.y * p.z);
+          }
+
+          void main() {
+            vec3 dir = normalize(vWorldPos);
+            float elevation = clamp(dir.y, 0.0, 1.0);
+            float horizonFactor = pow(1.0 - elevation, 2.25);
+            vec3 skyCol = mix(uZenithColor, uHorizonColor, horizonFactor);
+
+            // Soft solar/lunar disc + romantic crepuscular rays
+            vec3 sDir = normalize(uSunDir);
+            float sunDot = max(dot(dir, sDir), 0.0);
+            float angleRay = atan(dir.y - sDir.y, dir.x - sDir.x);
+            float godRays = (0.5 + 0.5 * sin(angleRay * 14.0 + uTime * 0.25)) * pow(sunDot, 5.0) * 0.28;
+
+            float halo = pow(sunDot, 6.0) * 0.55 + pow(sunDot, 42.0) * 0.8 + godRays;
+            float sunDisc = smoothstep(0.9972, 0.9993, sunDot);
+            skyCol += uSunGlowColor * halo;
+            skyCol = mix(skyCol, uSunGlowColor * 1.45, sunDisc * 0.9);
+
+            // Starlight, Milky Way nebula & twinkling constellations in Starlit Romance / Sunset modes
+            float starVisibility = smoothstep(0.28, 1.15, uBioGlow) * smoothstep(0.02, 0.22, elevation);
+            if (starVisibility > 0.001) {
+              float aurora = sin(dir.x * 7.0 + uTime * 0.35) * cos(dir.z * 6.0 - uTime * 0.25);
+              aurora = smoothstep(0.25, 0.95, aurora) * (elevation * (1.0 - elevation));
+              skyCol += vec3(0.45, 0.18, 0.58) * aurora * starVisibility * 0.85;
+
+              // Milky Way diagonal galactic band
+              float galacticBand = exp(-pow((dir.x * 0.65 + dir.z * 0.45 - 0.15) * 3.2, 2.0)) * elevation;
+              skyCol += vec3(0.32, 0.22, 0.55) * galacticBand * starVisibility * 0.55;
+
+              // High-density background star dust
+              vec3 starCell = floor(dir * 260.0);
+              float h = hash31(starCell);
+              if (h > 0.986) {
+                float twinkle = 0.55 + 0.45 * sin(uTime * (2.5 + fract(h * 73.0) * 5.0) + h * 100.0);
+                float brightness = smoothstep(0.986, 0.9995, h) * twinkle * starVisibility;
+                vec3 starTint = mix(vec3(0.85, 0.92, 1.0), vec3(1.0, 0.82, 0.92), fract(h * 31.0));
+                skyCol += starTint * brightness * 2.2;
+              }
+            }
+
+            gl_FragColor = vec4(skyCol, 1.0);
+          }
+        `
+      });
+      const skyMesh = new THREE.Mesh(skyGeo, skyMat);
+      scene.add(skyMesh);
+
+      // 3D Celestial Star Dome (3,500 crisp twinkling stars & constellations for Starlit Romance)
+      const starCount = 3500;
+      const starGeo = new THREE.BufferGeometry();
+      const starPositions = new Float32Array(starCount * 3);
+      const starColors = new Float32Array(starCount * 3);
+      const starSizes = new Float32Array(starCount);
+      const starPhases = new Float32Array(starCount);
+
+      const starPalette = [
+        new THREE.Color('#ffffff'),
+        new THREE.Color('#bae6fd'),
+        new THREE.Color('#fde68a'),
+        new THREE.Color('#fbcfe8'),
+        new THREE.Color('#ddd6fe')
+      ];
+
+      for (let i = 0; i < starCount; i++) {
+        // Upper sky hemisphere distribution
+        const u = Math.random();
+        const v = Math.random();
+        const theta = u * Math.PI * 2;
+        const phi = Math.acos(0.04 + v * 0.96); // keep above horizon
+        const r = 158.0;
+
+        starPositions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+        starPositions[i * 3 + 1] = r * Math.cos(phi);
+        starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+        const c = starPalette[i % starPalette.length];
+        starColors[i * 3]     = c.r;
+        starColors[i * 3 + 1] = c.g;
+        starColors[i * 3 + 2] = c.b;
+
+        starSizes[i] = (Math.random() < 0.12) ? (2.2 + Math.random() * 2.2) : (0.7 + Math.random() * 1.4);
+        starPhases[i] = Math.random() * Math.PI * 2;
+      }
+
+      starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+      starGeo.setAttribute('aColor', new THREE.BufferAttribute(starColors, 3));
+      starGeo.setAttribute('aSize', new THREE.BufferAttribute(starSizes, 1));
+      starGeo.setAttribute('aPhase', new THREE.BufferAttribute(starPhases, 1));
+
+      const starMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uTime: { value: 0 },
+          uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+          uStarIntensity: { value: 0.0 }
+        },
+        vertexShader: `
+          uniform float uTime;
+          uniform float uPixelRatio;
+          uniform float uStarIntensity;
+          attribute vec3 aColor;
+          attribute float aSize;
+          attribute float aPhase;
+          varying vec3 vColor;
+          varying float vAlpha;
+
+          void main() {
+            vColor = aColor;
+            vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPos;
+
+            float twinkle = 0.55 + 0.45 * sin(uTime * (2.2 + aSize * 0.8) + aPhase);
+            float horizonFade = smoothstep(4.0, 28.0, position.y);
+            vAlpha = twinkle * horizonFade * uStarIntensity;
+
+            gl_PointSize = aSize * uPixelRatio * (1.2 + 0.4 * twinkle);
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vColor;
+          varying float vAlpha;
+
+          void main() {
+            if (vAlpha <= 0.01) discard;
+            vec2 uv = gl_PointCoord - vec2(0.5);
+            float d = length(uv);
+            if (d > 0.5) discard;
+
+            float core = smoothstep(0.5, 0.0, d);
+            float spike = max(
+              exp(-abs(uv.x) * 18.0) * exp(-abs(uv.y) * 4.0),
+              exp(-abs(uv.y) * 18.0) * exp(-abs(uv.x) * 4.0)
+            );
+            float intensity = pow(core, 1.6) + spike * 0.55;
+            gl_FragColor = vec4(vColor * 1.35, clamp(intensity * vAlpha, 0.0, 1.0));
+          }
+        `
+      });
+
+      const starFieldPoints = new THREE.Points(starGeo, starMat);
+      scene.add(starFieldPoints);
+
+      /* ==========================================================================
+       * 6. SCENE LIGHTS
+       * ========================================================================== */
+      const ambientLight = new THREE.AmbientLight(activeLight.ambientColor, activeLight.ambientIntensity);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(activeLight.sunColor, activeLight.sunIntensity);
+      sunLight.position.copy(activeLight.sunDir).multiplyScalar(60);
+      scene.add(sunLight);
+
+      const rimLight = new THREE.DirectionalLight(activeLight.rimColor, activeLight.rimIntensity);
+      rimLight.position.set(-25, 18, 25);
+      scene.add(rimLight);
+
+      // Warm core point light inside the hero flower that brightens as it blooms
+      const heroCoreLight = new THREE.PointLight(0xff9eb5, 1.8, 9.5, 2.0);
+      heroCoreLight.position.set(0, 2.45, 0);
+      scene.add(heroCoreLight);
+
+      // Dedicated botanical stem backlight/fill light so the main stem is clearly illuminated from 0%
+      const heroStemLight = new THREE.PointLight(0xa7f3d0, 1.45, 6.0, 1.5);
+      heroStemLight.position.set(0.65, 1.15, 1.35);
+      scene.add(heroStemLight);
+
+      /* ==========================================================================
+       * 7. ROLLING MEADOW TERRAIN MESH WITH LUMINOUS EXPANSION WAVE SHADER
+       * ========================================================================== */
+      const terrainSize = 240;
+      const terrainSegments = 160;
+      const terrainGeo = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegments, terrainSegments);
+      terrainGeo.rotateX(-Math.PI / 2);
+
+      const tPos = terrainGeo.attributes.position;
+      const tColors = new Float32Array(tPos.count * 3);
+      const cDarkMoss = new THREE.Color('#0c1f17');
+      const cMeadowGreen = new THREE.Color('#193824');
+      const cGoldenHill = new THREE.Color('#2c4422');
+
+      for (let i = 0; i < tPos.count; i++) {
+        const vx = tPos.getX(i);
+        const vz = tPos.getZ(i);
+        const vy = getTerrainHeight(vx, vz);
+        tPos.setY(i, vy);
+
+        const blend = THREE.MathUtils.clamp((vy + 2.5) / 5.5, 0, 1);
+        const col = cDarkMoss.clone().lerp(cMeadowGreen, blend).lerp(cGoldenHill, blend * blend * 0.6);
+        tColors[i * 3] = col.r;
+        tColors[i * 3 + 1] = col.g;
+        tColors[i * 3 + 2] = col.b;
+      }
+      terrainGeo.setAttribute('color', new THREE.BufferAttribute(tColors, 3));
+      terrainGeo.computeVertexNormals();
+
+      const terrainUniforms = {
+        uExpansionRadius: { value: 0.0 },
+        uClickWaveOrigin: { value: new THREE.Vector3(0, 0, 0) },
+        uClickWaveRadius: { value: -10.0 },
+        uClickWaveStrength: { value: 0.0 },
+        uSunColor: { value: activeLight.sunColor },
+        uAmbientColor: { value: activeLight.ambientColor },
+        uFogColor: { value: activeLight.fogColor },
+        uFogDensity: { value: activeLight.fogDensity }
+      };
+
+      const terrainMat = new THREE.ShaderMaterial({
+        uniforms: terrainUniforms,
+        vertexShader: `
+          attribute vec3 color;
+          varying vec3 vColor;
+          varying vec3 vWorldPos;
+          varying vec3 vNormal;
+          void main() {
+            vColor = color;
+            vNormal = normalize(normalMatrix * normal);
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vWorldPos = wp.xyz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }
+        `,
+        fragmentShader: `
+          uniform float uExpansionRadius;
+          uniform vec3 uClickWaveOrigin;
+          uniform float uClickWaveRadius;
+          uniform float uClickWaveStrength;
+          uniform vec3 uSunColor;
+          uniform vec3 uAmbientColor;
+          uniform vec3 uFogColor;
+          uniform float uFogDensity;
+
+          varying vec3 vColor;
+          varying vec3 vWorldPos;
+          varying vec3 vNormal;
+
+          void main() {
+            float distFromCenter = length(vWorldPos.xz);
+            // Dormant cool earth transitions into lush warm moss & distant floral tapestry as the expansion wave passes
+            float awakened = 1.0 - smoothstep(uExpansionRadius - 3.5, uExpansionRadius + 1.5, distFromCenter);
+            vec3 dormantEarth = vec3(0.05, 0.08, 0.11);
+
+            // Procedural tapestry of wildflower meadow drifts across the valley & background hills
+            float p1 = 0.5 + 0.5 * sin(vWorldPos.x * 0.16 + cos(vWorldPos.z * 0.14) * 2.2);
+            float p2 = 0.5 + 0.5 * cos(vWorldPos.x * 0.27 - vWorldPos.z * 0.21 + 1.4);
+            float microSpeckle = 0.5 + 0.5 * sin(vWorldPos.x * 2.4) * cos(vWorldPos.z * 2.4);
+
+            vec3 floralDrift = mix(vec3(0.88, 0.22, 0.42), vec3(0.96, 0.68, 0.18), p1);
+            floralDrift = mix(floralDrift, vec3(0.68, 0.34, 0.92), p2 * 0.65);
+            floralDrift = mix(floralDrift, vec3(0.98, 0.85, 0.92), smoothstep(0.75, 0.98, microSpeckle) * 0.45);
+
+            // Blend rich floral carpet across the valley floor and distant hills once awakened
+            float valleyCarpetMask = smoothstep(3.5, 22.0, distFromCenter) * awakened * (0.45 + 0.35 * microSpeckle);
+            vec3 awakenedGround = mix(vColor, floralDrift, valleyCarpetMask);
+            vec3 baseCol = mix(dormantEarth, awakenedGround, awakened);
+
+            vec3 light = uAmbientColor * 0.65 + uSunColor * max(0.25, vNormal.y) * 0.72;
+            vec3 col = baseCol * light;
+
+            // Golden-rose sympathetic bloom ring sweeping across the ground
+            if (uExpansionRadius > 0.5 && uExpansionRadius < 128.0) {
+              float ring = exp(-pow((distFromCenter - uExpansionRadius) * 0.45, 2.0));
+              col += vec3(0.98, 0.58, 0.72) * ring * 0.65;
+            }
+
+            // Interactive user click ripple ring
+            if (uClickWaveStrength > 0.01) {
+              float cDist = length(vWorldPos.xz - uClickWaveOrigin.xz);
+              float cRing = exp(-pow((cDist - uClickWaveRadius) * 0.7, 2.0));
+              col += vec3(1.0, 0.75, 0.82) * cRing * uClickWaveStrength * 0.85;
+            }
+
+            float camDist = length(cameraPosition - vWorldPos);
+            float fogFactor = 1.0 - exp(-(uFogDensity * camDist) * (uFogDensity * camDist));
+            col = mix(col, uFogColor, clamp(fogFactor, 0.0, 1.0));
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `
+      });
+      const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+      scene.add(terrainMesh);
+
+      const raycastPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.0);
+      const raycaster = new THREE.Raycaster();
+
+      /* ==========================================================================
+       * 8. CENTRAL HERO FLOWER & COMPANION BLOOMS (Sprouting + Spring-Damper Physics)
+       * ========================================================================== */
+      const heroFlowerGroup = new THREE.Group();
+      const heroBaseY = getTerrainHeight(0, 0);
+      heroFlowerGroup.position.set(0, heroBaseY, 0);
+      scene.add(heroFlowerGroup);
+
+      // Shared Hero Uniforms
+      const heroPetalUniforms = {
+        uTime: { value: 0 },
+        uBloom: { value: 0 },
+        uWindStrength: { value: 1.0 },
+        uBioGlow: { value: activeLight.bioGlow },
+        uSunDir: { value: activeLight.sunDir },
+        uSunColor: { value: activeLight.sunColor },
+        uAmbientColor: { value: activeLight.ambientColor }
+      };
+
+      function createHeroPetalGeometry(width, length, xSegments, ySegments) {
+        const geo = new THREE.BufferGeometry();
+        const positions = [];
+        const uvs = [];
+        const indices = [];
+
+        for (let iy = 0; iy <= ySegments; iy++) {
+          const v = iy / ySegments;
+          const widthProfile = Math.sin(Math.pow(v, 0.65) * Math.PI) * (1.0 + 0.22 * Math.sin(v * Math.PI));
+
+          for (let ix = 0; ix <= xSegments; ix++) {
+            const u = ix / xSegments;
+            const centeredU = (u - 0.5) * 2.0;
+
+            const x = centeredU * (width * 0.5) * widthProfile;
+            const y = v * length;
+            const cupDepth = (1.0 - centeredU * centeredU) * Math.sin(v * Math.PI) * 0.15;
+            const ruffle = Math.pow(v, 2.4) * Math.sin(centeredU * Math.PI * 3.0) * 0.028;
+            const z = cupDepth + ruffle;
+
+            positions.push(x, y, z);
+            uvs.push(u, v);
+          }
+        }
+
+        for (let iy = 0; iy < ySegments; iy++) {
+          for (let ix = 0; ix < xSegments; ix++) {
+            const a = ix + (xSegments + 1) * iy;
+            const b = ix + (xSegments + 1) * (iy + 1);
+            const c = (ix + 1) + (xSegments + 1) * (iy + 1);
+            const d = (ix + 1) + (xSegments + 1) * iy;
+            indices.push(a, b, d);
+            indices.push(b, c, d);
+          }
+        }
+
+        geo.setIndex(indices);
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geo.computeVertexNormals();
+        return geo;
+      }
+
+      function createHeroPetalMaterial(layerNorm, hueShift = 0.0) {
+        return new THREE.ShaderMaterial({
+          side: THREE.DoubleSide,
+          uniforms: {
+            uTime: heroPetalUniforms.uTime,
+            uBloom: heroPetalUniforms.uBloom,
+            uWindStrength: heroPetalUniforms.uWindStrength,
+            uBioGlow: heroPetalUniforms.uBioGlow,
+            uSunDir: heroPetalUniforms.uSunDir,
+            uSunColor: heroPetalUniforms.uSunColor,
+            uAmbientColor: heroPetalUniforms.uAmbientColor,
+            uLayerNorm: { value: layerNorm },
+            uHueShift: { value: hueShift }
+          },
+          vertexShader: `
+            uniform float uTime;
+            uniform float uBloom;
+            uniform float uWindStrength;
+            uniform float uLayerNorm;
+            varying vec2 vUv;
+            varying vec3 vNormal;
+            varying vec3 vWorldPos;
+
+            void main() {
+              vUv = uv;
+              vec3 pos = position;
+
+              float localBloom = clamp((uBloom - uLayerNorm * 0.16) / 0.84, 0.0, 1.0);
+              // Tight spherical bud wrap when closed -> graceful romantic recurve when open
+              float budCurl = (1.0 - localBloom) * pow(uv.y, 1.55) * 0.46;
+              float openGrace = localBloom * pow(uv.y, 2.15) * -0.21;
+
+              float centeredU = (uv.x - 0.5) * 2.0;
+              float sideWrap = (1.0 - localBloom) * (centeredU * centeredU) * uv.y * 0.18;
+
+              pos.z += budCurl + openGrace + sideWrap;
+
+              // Silk ripple along petal margins
+              float tipFlutter = sin(uTime * 2.6 + uv.x * 5.5 + uLayerNorm * 6.0) * 0.018 * uWindStrength * uv.y * uv.y;
+              pos.z += tipFlutter;
+
+              vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
+              vWorldPos = worldPosition.xyz;
+              vNormal = normalize(normalMatrix * normal);
+
+              gl_Position = projectionMatrix * viewMatrix * worldPosition;
+            }
+          `,
+          fragmentShader: `
+            uniform float uTime;
+            uniform float uBloom;
+            uniform float uBioGlow;
+            uniform vec3 uSunDir;
+            uniform vec3 uSunColor;
+            uniform vec3 uAmbientColor;
+            uniform float uLayerNorm;
+            uniform float uHueShift;
+
+            varying vec2 vUv;
+            varying vec3 vNormal;
+            varying vec3 vWorldPos;
+
+            void main() {
+              vec3 N = normalize(vNormal);
+              if (!gl_FrontFacing) N = -N;
+              vec3 L = normalize(uSunDir);
+              vec3 V = normalize(cameraPosition - vWorldPos);
+
+              // Romantic palette: warm honey-gold heart -> velvety crimson-rose -> soft blush pearl edge
+              vec3 cBase = vec3(0.99, 0.74, 0.28);
+              vec3 cMid  = mix(vec3(0.92, 0.20, 0.44), vec3(0.98, 0.48, 0.66), uLayerNorm);
+              cMid.r = clamp(cMid.r + uHueShift * 0.15, 0.0, 1.0);
+              cMid.b = clamp(cMid.b - uHueShift * 0.12, 0.0, 1.0);
+              vec3 cTip  = vec3(1.00, 0.94, 0.97);
+
+              vec3 petalColor = mix(cBase, cMid, smoothstep(0.0, 0.36, vUv.y));
+              petalColor = mix(petalColor, cTip, smoothstep(0.58, 0.98, vUv.y));
+
+              float centeredU = (vUv.x - 0.5) * 2.0;
+              float fanCoord = centeredU / (0.35 + vUv.y * 0.85);
+              float veins = abs(sin(fanCoord * 30.0 + sin(vUv.y * 10.0) * 0.6));
+              float veinMask = smoothstep(0.84, 0.98, veins) * (1.0 - vUv.y * 0.45);
+              petalColor = mix(petalColor, vec3(1.0, 0.86, 0.93), veinMask * 0.24);
+
+              float NdotL = dot(N, L);
+              float wrapDiff = max(0.0, (NdotL + 0.48) / 1.48);
+              float backLight = pow(max(0.0, dot(-L, V)), 2.8) * (0.45 + 0.55 * vUv.y);
+              float fresnel = pow(1.0 - max(0.0, dot(N, V)), 3.0);
+
+              vec3 lighting = uAmbientColor * 0.58 + uSunColor * wrapDiff * 0.88;
+              vec3 sss = vec3(1.0, 0.48, 0.42) * backLight * 0.62 * uSunColor;
+              vec3 rim = uSunColor * fresnel * 0.40;
+
+              vec3 finalColor = petalColor * lighting + sss + rim;
+
+              float bioPulse = 0.85 + 0.15 * sin(uTime * 2.5 - vUv.y * 6.0);
+              vec3 bioColor = mix(vec3(0.98, 0.38, 0.68), vec3(0.38, 0.82, 1.0), vUv.y);
+              finalColor += bioColor * (veinMask * 0.65 + (1.0 - vUv.y) * 0.45 + fresnel * 0.5) * uBioGlow * bioPulse;
+
+              gl_FragColor = vec4(finalColor, 1.0);
+            }
+          `
+        });
+      }
+
+      // Dynamic Segmented Hero Stem that physically grows & uncurls from the soil
+      const stemSegCount = 24;
+      const stemRadius = 0.076;
+      const heroStemGeo = new THREE.CylinderGeometry(stemRadius * 0.78, stemRadius * 1.28, 1.0, 14, stemSegCount);
+      heroStemGeo.translate(0, 0.5, 0); // Base at y = 0, top at y = 1
+      // Store original unbent vertex coordinates for real-time spline deformation
+      const origStemPos = heroStemGeo.attributes.position.array.slice();
+
+      const heroStemMat = new THREE.MeshStandardMaterial({
+        color: 0x3b7a44,
+        emissive: 0x183d20,
+        emissiveIntensity: 0.52,
+        roughness: 0.45,
+        metalness: 0.05
+      });
+      const heroStemMesh = new THREE.Mesh(heroStemGeo, heroStemMat);
+      // Disable frustum culling so Three.js never culls the stem when vertices stretch above its initial bounding sphere
+      heroStemMesh.frustumCulled = false;
+      heroFlowerGroup.add(heroStemMesh);
+
+      // Glowing Seed / Root Crown Mound at (0, 0, 0)
+      const seedMoundGeo = new THREE.SphereGeometry(0.18, 16, 12);
+      seedMoundGeo.scale(1.4, 0.45, 1.4);
+      const seedMoundMat = new THREE.MeshStandardMaterial({
+        color: 0x1e3f24,
+        emissive: 0xf43f5e,
+        emissiveIntensity: 0.25,
+        roughness: 0.8
+      });
+      const seedMound = new THREE.Mesh(seedMoundGeo, seedMoundMat);
+      heroFlowerGroup.add(seedMound);
+
+      // Hero Flower Head Pivot (dynamically positioned at the tip of the growing stem)
+      const heroHeadGroup = new THREE.Group();
+      heroFlowerGroup.add(heroHeadGroup);
+
+      // Botanical Receptacle / Stem Torus Cup right under the flower head so stem-to-blossom join is always visible
+      const receptacleGeo = new THREE.SphereGeometry(0.13, 16, 12);
+      receptacleGeo.scale(1.15, 0.85, 1.15);
+      const receptacleMesh = new THREE.Mesh(receptacleGeo, heroStemMat);
+      receptacleMesh.position.set(0, -0.04, 0);
+      heroHeadGroup.add(receptacleMesh);
+
+      // 4 Sculptural Stem Leaves with individual spring physics that unfurl as the stem passes their height
+      const leafGeo = createHeroPetalGeometry(0.34, 0.82, 10, 14);
+      const leafMat = new THREE.MeshStandardMaterial({
+        color: 0x3d7d47,
+        emissive: 0x133019,
+        emissiveIntensity: 0.35,
+        roughness: 0.48,
+        side: THREE.DoubleSide
+      });
+      const heroLeaves = [];
+      for (let i = 0; i < 4; i++) {
+        const leafPivot = new THREE.Group();
+        const attachRatio = 0.22 + i * 0.21; // Distributed up to 85% of stem height so upper leaves frame Stage 2
+        leafPivot.rotation.y = i * 2.2 + 0.5;
+        const leafMesh = new THREE.Mesh(leafGeo, leafMat);
+        leafMesh.frustumCulled = false;
+        leafPivot.add(leafMesh);
+        heroFlowerGroup.add(leafPivot);
+        heroLeaves.push({
+          pivot: leafPivot,
+          mesh: leafMesh,
+          attachRatio,
+          angleSpring: new SpringValue(0.42, 20, 3.6), // Partially unfurled at base so leaves & stem silhouette read at 0%
+          scaleSpring: new SpringValue(i < 2 ? 0.45 : 0.18, 24, 4.2),
+          azimuth: i * 2.2 + 0.5
+        });
+      }
+
+      // 6 Outer Calyx Sepals with spring physics
+      const sepalGeo = createHeroPetalGeometry(0.24, 0.46, 8, 10);
+      const sepals = [];
+      for (let i = 0; i < 6; i++) {
+        const pivot = new THREE.Group();
+        pivot.rotation.y = (i / 6) * Math.PI * 2;
+        const mesh = new THREE.Mesh(sepalGeo, leafMat);
+        pivot.add(mesh);
+        heroHeadGroup.add(pivot);
+        sepals.push({
+          mesh,
+          closedAngle: 0.28,
+          openAngle: 1.52,
+          spring: new SpringValue(0.28, 24, 4.0)
+        });
+      }
+
+      // 4 Concentric Rings of Hero Petals (36 petals total), each with its own Hooke's Law Spring
+      const petalRings = [
+        { count: 6,  width: 0.36, length: 0.58, closedPitch: 0.08, openPitch: 0.50, radiusOffset: 0.04, yOffset: 0.02 },
+        { count: 8,  width: 0.44, length: 0.72, closedPitch: 0.14, openPitch: 0.82, radiusOffset: 0.06, yOffset: 0.01 },
+        { count: 10, width: 0.52, length: 0.85, closedPitch: 0.20, openPitch: 1.14, radiusOffset: 0.08, yOffset: 0.00 },
+        { count: 12, width: 0.58, length: 0.94, closedPitch: 0.26, openPitch: 1.40, radiusOffset: 0.10, yOffset: -0.01 }
+      ];
+
+      const heroPetals = [];
+      petalRings.forEach((ring, ringIdx) => {
+        const layerNorm = ringIdx / (petalRings.length - 1);
+        const geo = createHeroPetalGeometry(ring.width, ring.length, 14, 18);
+        const mat = createHeroPetalMaterial(layerNorm, 0.0);
+
+        for (let i = 0; i < ring.count; i++) {
+          const angle = (i / ring.count) * Math.PI * 2 + ringIdx * 0.37;
+          const anchor = new THREE.Group();
+          anchor.rotation.y = angle;
+
+          const holder = new THREE.Group();
+          holder.position.set(0, ring.yOffset, ring.radiusOffset);
+
+          const petalMesh = new THREE.Mesh(geo, mat);
+          holder.add(petalMesh);
+          anchor.add(holder);
+          heroHeadGroup.add(anchor);
+
+          const cPitch = ring.closedPitch + (Math.random() - 0.5) * 0.03;
+          // Stiffness & damping vary slightly per petal for natural organic desynchronization
+          const stiffness = 18.0 + (3 - ringIdx) * 3.5 + Math.random() * 4.0;
+          const damping = 3.2 + Math.random() * 1.1;
+
+          heroPetals.push({
+            holder,
+            petalMesh,
+            ringIdx,
+            layerNorm,
+            angle,
+            closedPitch: cPitch,
+            openPitch: ring.openPitch + (Math.random() - 0.5) * 0.06,
+            azimuthJitter: (Math.random() - 0.5) * 0.08,
+            phaseOffset: i * 0.7 + ringIdx * 1.3,
+            pitchSpring: new SpringValue(cPitch, stiffness, damping),
+            rollSpring: new SpringValue(0, 16.0, 3.0)
+          });
+        }
+      });
+
+      // Glowing Golden Stamen & Pistil Core inside the Hero Flower
+      const stamenGroup = new THREE.Group();
+      heroHeadGroup.add(stamenGroup);
+
+      const coreDomeGeo = new THREE.SphereGeometry(0.11, 20, 16);
+      coreDomeGeo.scale(1, 0.75, 1);
+      const coreDomeMat = new THREE.MeshStandardMaterial({
+        color: 0xf59e0b,
+        emissive: 0xe11d48,
+        emissiveIntensity: 0.45,
+        roughness: 0.35
+      });
+      const coreDome = new THREE.Mesh(coreDomeGeo, coreDomeMat);
+      coreDome.position.y = 0.05;
+      stamenGroup.add(coreDome);
+
+      const filamentGeo = new THREE.CylinderGeometry(0.004, 0.007, 0.28, 6);
+      filamentGeo.translate(0, 0.14, 0);
+      const filamentMat = new THREE.MeshStandardMaterial({
+        color: 0xfbbf24,
+        emissive: 0xb45309,
+        emissiveIntensity: 0.3,
+        roughness: 0.4
+      });
+      const antherGeo = new THREE.SphereGeometry(0.018, 8, 8);
+      antherGeo.scale(1.2, 1.6, 1.0);
+      const antherMat = new THREE.MeshStandardMaterial({
+        color: 0xfef08a,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 0.9,
+        roughness: 0.2
+      });
+
+      const stamens = [];
+      for (let i = 0; i < 44; i++) {
+        const sPivot = new THREE.Group();
+        const ringFactor = (i % 3) / 2;
+        const angle = i * 2.39996;
+        sPivot.rotation.y = angle;
+
+        const fil = new THREE.Mesh(filamentGeo, filamentMat);
+        const anth = new THREE.Mesh(antherGeo, antherMat);
+        anth.position.y = 0.28;
+        fil.add(anth);
+
+        const scaleLen = 0.65 + ringFactor * 0.45;
+        fil.scale.set(1, scaleLen, 1);
+
+        sPivot.add(fil);
+        stamenGroup.add(sPivot);
+        stamens.push({
+          fil,
+          closedTilt: 0.08 + ringFactor * 0.12,
+          openTilt: 0.38 + ringFactor * 0.48,
+          phase: i * 0.4
+        });
+      }
+
+      // Glistening morning dewdrops on inner petals
+      const dewGeo = new THREE.SphereGeometry(0.022, 16, 16);
+      dewGeo.scale(1.1, 0.72, 1.1);
+      const dewMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        transmission: 0.9,
+        opacity: 1,
+        transparent: true,
+        roughness: 0.05,
+        metalness: 0.1,
+        ior: 1.333,
+        reflectivity: 0.9
+      });
+      for (let i = 0; i < 3; i++) {
+        const targetPetal = heroPetals[10 + i * 7];
+        if (targetPetal) {
+          const drop = new THREE.Mesh(dewGeo, dewMat);
+          drop.position.set((i - 1) * 0.05, 0.48, 0.09);
+          targetPetal.petalMesh.add(drop);
+        }
+      }
+
+      /* ==========================================================================
+       * 8B. COMPANION FOREGROUND BLOOMS (Sprout & Bloom in Harmony Around Hero)
+       * ========================================================================== */
+      const companionFlowers = [];
+      const companionCoords = [
+        { x: -1.45, z: -0.65, height: 1.85, scale: 0.72, hue: -0.25 },
+        { x:  1.55, z: -0.85, height: 1.95, scale: 0.78, hue:  0.22 },
+        { x: -2.35, z: -2.10, height: 2.10, scale: 0.82, hue:  0.10 },
+        { x:  2.40, z: -2.30, height: 1.75, scale: 0.68, hue: -0.18 },
+        { x: -0.85, z: -2.85, height: 2.05, scale: 0.75, hue:  0.30 },
+        { x:  1.10, z: -3.20, height: 1.90, scale: 0.74, hue: -0.12 }
+      ];
+
+      const compPetalGeo = createHeroPetalGeometry(0.42, 0.72, 10, 12);
+
+      companionCoords.forEach((cfg, idx) => {
+        const group = new THREE.Group();
+        const gy = getTerrainHeight(cfg.x, cfg.z);
+        group.position.set(cfg.x, gy, cfg.z);
+        scene.add(group);
+
+        const cStemGeo = new THREE.CylinderGeometry(0.028, 0.042, 1.0, 8, 1);
+        cStemGeo.translate(0, 0.5, 0);
+        const cStem = new THREE.Mesh(cStemGeo, heroStemMat);
+        group.add(cStem);
+
+        const head = new THREE.Group();
+        group.add(head);
+
+        const cMat = createHeroPetalMaterial(0.5, cfg.hue);
+        const petals = [];
+        for (let ring = 0; ring < 2; ring++) {
+          const cnt = ring === 0 ? 6 : 9;
+          for (let p = 0; p < cnt; p++) {
+            const ang = (p / cnt) * Math.PI * 2 + ring * 0.4;
+            const piv = new THREE.Group();
+            piv.rotation.y = ang;
+            const mesh = new THREE.Mesh(compPetalGeo, cMat);
+            mesh.position.z = 0.04 + ring * 0.03;
+            piv.add(mesh);
+            head.add(piv);
+            petals.push({
+              mesh,
+              closed: 0.14 + ring * 0.1,
+              open: 0.72 + ring * 0.42,
+              spring: new SpringValue(0.14, 18 + Math.random() * 4, 3.5)
+            });
+          }
+        }
+
+        const cCore = new THREE.Mesh(coreDomeGeo, coreDomeMat);
+        cCore.scale.setScalar(0.8);
+        head.add(cCore);
+
+        companionFlowers.push({
+          group,
+          cStem,
+          head,
+          petals,
+          x: cfg.x,
+          z: cfg.z,
+          dist: Math.sqrt(cfg.x * cfg.x + cfg.z * cfg.z),
+          maxHeight: cfg.height,
+          maxScale: cfg.scale,
+          growthSpring: new SpringValue(0.01, 16, 3.8),
+          swayPhase: idx * 1.3
+        });
+      });
+
+      /* ==========================================================================
+       * 9. INSTANCED SWAYING MEADOW FLORA WITH RADIAL WAVE SPROUTING & BLOOMING
+       * ========================================================================== */
+      const meadowUniforms = {
+        uTime: { value: 0 },
+        uWindStrength: { value: 1.0 },
+        uExpansionRadius: { value: 0.0 },
+        uClickWaveOrigin: { value: new THREE.Vector3(0, 0, 0) },
+        uClickWaveRadius: { value: -10.0 },
+        uClickWaveStrength: { value: 0.0 },
+        uMousePos: { value: new THREE.Vector3(0, -100, 0) },
+        uSunDir: { value: activeLight.sunDir },
+        uSunColor: { value: activeLight.sunColor },
+        uAmbientColor: { value: activeLight.ambientColor },
+        uFogColor: { value: activeLight.fogColor },
+        uFogDensity: { value: activeLight.fogDensity },
+        uBioGlow: { value: activeLight.bioGlow }
+      };
+
+      // Shared GLSL Wind, Radial Wave Elastic Impulse & Cursor Repulsion
+      const windVertexChunk = `
+        vec3 calcWindOffset(vec3 worldBase, float heightFactor, float swayRigidity) {
+          float wave1 = sin(worldBase.x * 0.22 + worldBase.z * 0.16 + uTime * 1.85);
+          float wave2 = cos(worldBase.x * 0.45 - worldBase.z * 0.35 + uTime * 2.6) * 0.45;
+          float windWave = (wave1 + wave2) * uWindStrength;
+
+          float bend = pow(max(heightFactor, 0.0), 1.65) * swayRigidity;
+          vec3 offset = vec3(
+            (0.28 + windWave * 0.24) * bend,
+            -abs(windWave) * 0.07 * bend,
+            (0.12 + windWave * 0.16) * bend
+          );
+
+          // Radial expansion wavefront elastic ripple as flowers sprout
+          float distCenter = length(worldBase.xz);
+          float waveFront = exp(-pow((distCenter - uExpansionRadius) * 0.65, 2.0));
+          if (uExpansionRadius > 0.5 && distCenter > 0.1) {
+            vec2 radDir = normalize(worldBase.xz);
+            float osc = sin((distCenter - uExpansionRadius) * 2.5) * waveFront * 0.42 * bend;
+            offset.xz += radDir * osc;
+          }
+
+          // Interactive click wave physical sway
+          if (uClickWaveStrength > 0.01) {
+            vec2 toClick = worldBase.xz - uClickWaveOrigin.xz;
+            float cDist = length(toClick);
+            float cWave = exp(-pow((cDist - uClickWaveRadius) * 0.65, 2.0)) * uClickWaveStrength;
+            if (cDist > 0.01) {
+              offset.xz += normalize(toClick) * cWave * 0.65 * bend;
+            }
+          }
+
+          // Interactive cursor wind parting
+          vec2 toPlant = worldBase.xz - uMousePos.xz;
+          float dist = length(toPlant);
+          float radius = 4.5;
+          if (dist < radius && dist > 0.001) {
+            float push = pow(1.0 - dist / radius, 2.0) * 1.55 * pow(max(heightFactor, 0.0), 1.3);
+            vec2 pushDir = normalize(toPlant);
+            offset.xz += pushDir * push;
+            offset.y -= push * 0.28;
+          }
+          return offset;
+        }
+      `;
+
+      // 9A. INSTANCED MEADOW GRASS BLADES (18,000 blades that sprout as the wave expands)
+      function buildInstancedGrass(count) {
+        const segs = 5;
+        const positions = [];
+        const uvs = [];
+        const indices = [];
+        const baseW = 0.042;
+
+        for (let i = 0; i <= segs; i++) {
+          const v = i / segs;
+          const w = baseW * (1.0 - Math.pow(v, 1.4) * 0.92);
+          const y = v;
+          const zCurve = v * v * 0.12;
+          positions.push(-w, y, zCurve);
+          positions.push(w, y, zCurve);
+          uvs.push(0, v);
+          uvs.push(1, v);
+        }
+        for (let i = 0; i < segs; i++) {
+          const r = i * 2;
+          indices.push(r, r + 1, r + 2);
+          indices.push(r + 1, r + 3, r + 2);
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setIndex(indices);
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geo.computeVertexNormals();
+
+        const mat = new THREE.ShaderMaterial({
+          side: THREE.DoubleSide,
+          uniforms: meadowUniforms,
+          vertexShader: `
+            uniform float uTime;
+            uniform float uWindStrength;
+            uniform float uExpansionRadius;
+            uniform vec3 uClickWaveOrigin;
+            uniform float uClickWaveRadius;
+            uniform float uClickWaveStrength;
+            uniform vec3 uMousePos;
+            #ifndef USE_INSTANCING_COLOR
+              attribute vec3 instanceColor;
+            #endif
+            varying vec2 vUv;
+            varying vec3 vColor;
+            varying vec3 vWorldPos;
+            varying float vHeight;
+
+            ${windVertexChunk}
+
+            void main() {
+              vUv = uv;
+              vColor = instanceColor;
+              vHeight = uv.y;
+
+              vec4 worldBase = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+              float distCenter = length(worldBase.xz);
+
+              // Smooth sprouting factor based on the radial expansion wave
+              float sprout = clamp((uExpansionRadius + 2.2 - distCenter) / 4.5, 0.05, 1.0);
+              // Elastic overshoot as blade emerges
+              float elasticSprout = sprout + sin(sprout * 3.14159) * 0.14;
+
+              vec3 localPos = position;
+              localPos.y *= elasticSprout;
+              localPos.xz *= (0.3 + 0.7 * sprout);
+
+              vec4 worldVertex = instanceMatrix * vec4(localPos, 1.0);
+              vec3 windDisp = calcWindOffset(worldBase.xyz, uv.y * sprout, 1.0);
+              worldVertex.xyz += windDisp;
+
+              vWorldPos = worldVertex.xyz;
+              gl_Position = projectionMatrix * viewMatrix * worldVertex;
+            }
+          `,
+          fragmentShader: `
+            uniform vec3 uSunDir;
+            uniform vec3 uSunColor;
+            uniform vec3 uAmbientColor;
+            uniform vec3 uFogColor;
+            uniform float uFogDensity;
+            uniform float uBioGlow;
+
+            varying vec2 vUv;
+            varying vec3 vColor;
+            varying vec3 vWorldPos;
+            varying float vHeight;
+
+            void main() {
+              vec3 rootCol = vec3(0.05, 0.13, 0.08);
+              vec3 tipCol = vColor * 1.35 + vec3(0.14, 0.16, 0.02) * vHeight;
+              vec3 baseCol = mix(rootCol, tipCol, smoothstep(0.0, 0.9, vHeight));
+
+              vec3 V = normalize(cameraPosition - vWorldPos);
+              vec3 L = normalize(uSunDir);
+              float backGlow = pow(max(0.0, dot(-L, V)), 2.5) * vHeight;
+
+              vec3 light = uAmbientColor * 0.65 + uSunColor * (0.45 + 0.65 * vHeight) + uSunColor * backGlow * 0.55;
+              vec3 col = baseCol * light;
+
+              col += vec3(0.18, 0.65, 0.58) * pow(vHeight, 3.0) * uBioGlow * 0.45;
+
+              float dist = length(cameraPosition - vWorldPos);
+              float fogFactor = 1.0 - exp(- (uFogDensity * dist) * (uFogDensity * dist));
+              col = mix(col, uFogColor, clamp(fogFactor, 0.0, 1.0));
+
+              gl_FragColor = vec4(col, 1.0);
+            }
+          `
+        });
+
+        const instMesh = new THREE.InstancedMesh(geo, mat, count);
+        const dummy = new THREE.Object3D();
+        const color = new THREE.Color();
+        const grassPalette = [
+          new THREE.Color('#27592d'),
+          new THREE.Color('#346e33'),
+          new THREE.Color('#477d32'),
+          new THREE.Color('#5a8732'),
+          new THREE.Color('#2a5c3a')
+        ];
+
+        for (let i = 0; i < count; i++) {
+          const u = Math.random();
+          // Bias grass distribution to cover both 360 foreground and the deep background valley
+          const inForwardValley = Math.random() < 0.62;
+          const radius = inForwardValley
+            ? (0.55 + Math.pow(u, 1.05) * 112.0)
+            : (0.55 + Math.pow(u, 1.25) * 68.0);
+          const theta = inForwardValley
+            ? (-Math.PI * 0.08 - Math.random() * Math.PI * 0.84)
+            : (Math.random() * Math.PI * 2);
+          const x = Math.cos(theta) * radius;
+          const z = Math.sin(theta) * radius;
+          const y = getTerrainHeight(x, z);
+
+          dummy.position.set(x, y, z);
+          dummy.rotation.set(
+            (Math.random() - 0.5) * 0.25,
+            Math.random() * Math.PI * 2,
+            (Math.random() - 0.5) * 0.25
+          );
+          const scaleH = 0.65 + Math.random() * 1.15;
+          const scaleW = 0.8 + Math.random() * 0.6;
+          dummy.scale.set(scaleW, scaleH, scaleW);
+          dummy.updateMatrix();
+          instMesh.setMatrixAt(i, dummy.matrix);
+
+          const baseC = grassPalette[i % grassPalette.length];
+          color.copy(baseC).offsetHSL((Math.random() - 0.5) * 0.04, 0, (Math.random() - 0.5) * 0.06);
+          instMesh.setColorAt(i, color);
+        }
+
+        instMesh.instanceMatrix.needsUpdate = true;
+        instMesh.instanceColor.needsUpdate = true;
+        scene.add(instMesh);
+      }
+
+      buildInstancedGrass(24000);
+
+      // 9B. INSTANCED WILDFLOWERS & STEMS WITH SYMPATHETIC WAVE BLOOMING SHADER
+      function createWildflowerHeadGeometry(type) {
+        const mergedPositions = [];
+        const mergedNormals = [];
+        const mergedUvs = [];
+        const mergedIndices = [];
+
+        function appendMeshGeometry(g, matrix, partTagV) {
+          const clone = g.clone();
+          clone.applyMatrix4(matrix);
+          clone.computeVertexNormals();
+
+          const pos = clone.attributes.position;
+          const norm = clone.attributes.normal;
+          const uv = clone.attributes.uv;
+          const vertexOffset = mergedPositions.length / 3;
+
+          for (let i = 0; i < pos.count; i++) {
+            mergedPositions.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+            mergedNormals.push(norm.getX(i), norm.getY(i), norm.getZ(i));
+            const u = uv ? uv.getX(i) : 0.5;
+            const v = partTagV !== undefined ? partTagV : (uv ? uv.getY(i) : 0.8);
+            mergedUvs.push(u, v);
+          }
+
+          if (clone.index) {
+            const idx = clone.index;
+            for (let i = 0; i < idx.count; i++) {
+              mergedIndices.push(idx.getX(i) + vertexOffset);
+            }
+          } else {
+            for (let i = 0; i < pos.count; i++) {
+              mergedIndices.push(i + vertexOffset);
+            }
+          }
+        }
+
+        const m = new THREE.Matrix4();
+        const q = new THREE.Quaternion();
+        const p = new THREE.Vector3();
+        const s = new THREE.Vector3(1, 1, 1);
+
+        if (type === 'poppy') {
+          const petalG = createHeroPetalGeometry(0.24, 0.30, 5, 6);
+          for (let i = 0; i < 5; i++) {
+            const ang = (i / 5) * Math.PI * 2;
+            q.setFromEuler(new THREE.Euler(0.78, ang, 0, 'YXZ'));
+            p.set(0, 0, 0);
+            m.compose(p, q, s);
+            appendMeshGeometry(petalG, m);
+          }
+          const centerG = new THREE.SphereGeometry(0.06, 8, 6);
+          m.identity();
+          appendMeshGeometry(centerG, m, 0.05);
+        } else if (type === 'daisy') {
+          const petalG = createHeroPetalGeometry(0.085, 0.26, 3, 5);
+          for (let i = 0; i < 10; i++) {
+            const ang = (i / 10) * Math.PI * 2;
+            q.setFromEuler(new THREE.Euler(1.28, ang, 0, 'YXZ'));
+            p.set(0, 0, 0);
+            m.compose(p, q, s);
+            appendMeshGeometry(petalG, m);
+          }
+          const centerG = new THREE.SphereGeometry(0.075, 10, 8);
+          centerG.scale(1, 0.55, 1);
+          m.identity();
+          appendMeshGeometry(centerG, m, 0.02);
+        } else if (type === 'lavender') {
+          const budG = new THREE.OctahedronGeometry(0.055, 1);
+          budG.scale(0.85, 1.35, 0.85);
+          for (let i = 0; i < 14; i++) {
+            const tier = i / 14;
+            const ang = i * 2.4;
+            const rad = 0.035 * (1.0 - tier * 0.5);
+            p.set(Math.cos(ang) * rad, -0.28 + tier * 0.42, Math.sin(ang) * rad);
+            q.setFromEuler(new THREE.Euler(0.25, ang, 0));
+            const sc = 1.0 - tier * 0.35;
+            s.set(sc, sc, sc);
+            m.compose(p, q, s);
+            appendMeshGeometry(budG, m, 0.3 + tier * 0.7);
+          }
+        } else {
+          const petalG = createHeroPetalGeometry(0.16, 0.22, 4, 5);
+          for (let i = 0; i < 6; i++) {
+            const ang = (i / 6) * Math.PI * 2;
+            q.setFromEuler(new THREE.Euler(0.85, ang, 0, 'YXZ'));
+            p.set(0, 0, 0);
+            m.compose(p, q, s);
+            appendMeshGeometry(petalG, m);
+          }
+        }
+
+        const outGeo = new THREE.BufferGeometry();
+        outGeo.setIndex(mergedIndices);
+        outGeo.setAttribute('position', new THREE.Float32BufferAttribute(mergedPositions, 3));
+        outGeo.setAttribute('normal', new THREE.Float32BufferAttribute(mergedNormals, 3));
+        outGeo.setAttribute('uv', new THREE.Float32BufferAttribute(mergedUvs, 2));
+        return outGeo;
+      }
+
+      // Wildflower Head Material: physically rises from the ground AND unfurls its petals as uExpansionRadius reaches it!
+      const wildflowerMat = new THREE.ShaderMaterial({
+        side: THREE.DoubleSide,
+        uniforms: meadowUniforms,
+        vertexShader: `
+          uniform float uTime;
+          uniform float uWindStrength;
+          uniform float uExpansionRadius;
+          uniform vec3 uClickWaveOrigin;
+          uniform float uClickWaveRadius;
+          uniform float uClickWaveStrength;
+          uniform vec3 uMousePos;
+          #ifndef USE_INSTANCING_COLOR
+            attribute vec3 instanceColor;
+          #endif
+          varying vec2 vUv;
+          varying vec3 vColor;
+          varying vec3 vNormal;
+          varying vec3 vWorldPos;
+          varying float vBloomState;
+
+          ${windVertexChunk}
+
+          void main() {
+            vUv = uv;
+            vColor = instanceColor;
+
+            vec4 worldTop = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+            float distCenter = length(worldTop.xz);
+
+            // 1) Stem growth phase for this wildflower
+            float stemGrow = clamp((uExpansionRadius - distCenter + 2.5) / 4.2, 0.0, 1.0);
+            // 2) Petal unfurling phase (blooms right as stem nears full height, with elastic pop)
+            float localBloom = clamp((uExpansionRadius - distCenter + 0.6) / 3.8, 0.0, 1.0);
+            float elasticPop = localBloom + sin(localBloom * 3.14159) * 0.22;
+            vBloomState = localBloom;
+
+            // Morph vertex from tight closed bud into open flower head
+            vec3 localPos = position;
+            float radialSpread = mix(0.18, 1.0, clamp(elasticPop, 0.0, 1.25));
+            localPos.xz *= radialSpread;
+            // When closed in bud state, pull outer petal tips upward
+            localPos.y += (1.0 - localBloom) * uv.y * 0.16;
+            // Scale entire head down when still underground/sprouting
+            localPos *= smoothstep(0.0, 0.25, stemGrow);
+
+            vec4 worldVertex = instanceMatrix * vec4(localPos, 1.0);
+            // Lower flower head toward the ground while its stem is still growing
+            worldVertex.y -= (1.0 - stemGrow) * 1.15;
+
+            vec3 windDisp = calcWindOffset(worldTop.xyz, stemGrow, 0.95);
+            worldVertex.xyz += windDisp;
+
+            vWorldPos = worldVertex.xyz;
+            vNormal = normalize(mat3(instanceMatrix) * normal);
+            gl_Position = projectionMatrix * viewMatrix * worldVertex;
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 uSunDir;
+          uniform vec3 uSunColor;
+          uniform vec3 uAmbientColor;
+          uniform vec3 uFogColor;
+          uniform float uFogDensity;
+          uniform float uBioGlow;
+
+          varying vec2 vUv;
+          varying vec3 vColor;
+          varying vec3 vNormal;
+          varying vec3 vWorldPos;
+          varying float vBloomState;
+
+          void main() {
+            if (vBloomState <= 0.01) discard;
+            vec3 N = normalize(vNormal);
+            if (!gl_FrontFacing) N = -N;
+            vec3 L = normalize(uSunDir);
+
+            vec3 centerGold = vec3(0.96, 0.72, 0.14);
+            vec3 petalCol = mix(centerGold, vColor, smoothstep(0.04, 0.25, vUv.y));
+            petalCol = mix(petalCol, petalCol * 1.28 + vec3(0.08), smoothstep(0.5, 1.0, vUv.y));
+
+            // Magical golden-rose flash right as the flower blooms open
+            float bloomSpark = sin(vBloomState * 3.14159) * (1.0 - vBloomState) * 1.2;
+            petalCol += vec3(1.0, 0.65, 0.78) * bloomSpark;
+
+            float wrapDiff = max(0.0, (dot(N, L) + 0.5) / 1.5);
+            vec3 light = uAmbientColor * 0.65 + uSunColor * wrapDiff * 0.95;
+            vec3 col = petalCol * light;
+
+            col += vColor * (0.45 + 0.55 * vUv.y) * uBioGlow * 0.85;
+
+            float dist = length(cameraPosition - vWorldPos);
+            float fogFactor = 1.0 - exp(- (uFogDensity * dist) * (uFogDensity * dist));
+            col = mix(col, uFogColor, clamp(fogFactor, 0.0, 1.0));
+
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `
+      });
+
+      function createStemGeometry() {
+        const segs = 4;
+        const radius = 0.016;
+        const geo = new THREE.CylinderGeometry(radius * 0.75, radius, 1.0, 5, segs);
+        geo.translate(0, -0.5, 0);
+        return geo;
+      }
+
+      const stemMat = new THREE.ShaderMaterial({
+        uniforms: meadowUniforms,
+        vertexShader: `
+          uniform float uTime;
+          uniform float uWindStrength;
+          uniform float uExpansionRadius;
+          uniform vec3 uClickWaveOrigin;
+          uniform float uClickWaveRadius;
+          uniform float uClickWaveStrength;
+          uniform vec3 uMousePos;
+          varying vec3 vWorldPos;
+          varying float vHeight;
+          varying float vSprout;
+
+          ${windVertexChunk}
+
+          void main() {
+            float hFactor = clamp(1.0 + position.y, 0.0, 1.0);
+            vHeight = hFactor;
+
+            vec4 worldTop = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+            float distCenter = length(worldTop.xz);
+            float stemGrow = clamp((uExpansionRadius - distCenter + 2.5) / 4.2, 0.0, 1.0);
+            vSprout = stemGrow;
+
+            vec4 worldVertex = instanceMatrix * vec4(position, 1.0);
+            worldVertex.y -= (1.0 - stemGrow) * 1.15 * hFactor;
+
+            vec3 windDisp = calcWindOffset(worldTop.xyz, hFactor * stemGrow, 0.95);
+            worldVertex.xyz += windDisp;
+
+            vWorldPos = worldVertex.xyz;
+            gl_Position = projectionMatrix * viewMatrix * worldVertex;
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 uSunColor;
+          uniform vec3 uAmbientColor;
+          uniform vec3 uFogColor;
+          uniform float uFogDensity;
+          varying vec3 vWorldPos;
+          varying float vHeight;
+          varying float vSprout;
+
+          void main() {
+            if (vSprout <= 0.02) discard;
+            vec3 stemCol = mix(vec3(0.07, 0.18, 0.09), vec3(0.22, 0.46, 0.21), vHeight);
+            vec3 col = stemCol * (uAmbientColor * 0.65 + uSunColor * 0.55);
+
+            float dist = length(cameraPosition - vWorldPos);
+            float fogFactor = 1.0 - exp(- (uFogDensity * dist) * (uFogDensity * dist));
+            col = mix(col, uFogColor, clamp(fogFactor, 0.0, 1.0));
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `
+      });
+
+      function populateWildflowers() {
+        const speciesConfigs = [
+          {
+            type: 'poppy',
+            count: 4200,
+            colors: ['#f43f5e', '#fb7185', '#e11d48', '#fda4af'],
+            minH: 1.05,
+            maxH: 1.75
+          },
+          {
+            type: 'daisy',
+            count: 4200,
+            colors: ['#fff1f2', '#fef9c3', '#fce7f3', '#ffffff'],
+            minH: 0.85,
+            maxH: 1.55
+          },
+          {
+            type: 'lavender',
+            count: 4000,
+            colors: ['#a855f7', '#c084fc', '#e879f9', '#818cf8'],
+            minH: 1.15,
+            maxH: 1.95
+          },
+          {
+            type: 'buttercup',
+            count: 4000,
+            colors: ['#fbbf24', '#f59e0b', '#fde047', '#f472b6'],
+            minH: 0.80,
+            maxH: 1.50
+          }
+        ];
+
+        const totalFlowers = speciesConfigs.reduce((sum, s) => sum + s.count, 0);
+        const stemGeo = createStemGeometry();
+        const stemInstMesh = new THREE.InstancedMesh(stemGeo, stemMat, totalFlowers);
+
+        const dummyHead = new THREE.Object3D();
+        const dummyStem = new THREE.Object3D();
+        const colObj = new THREE.Color();
+        let globalStemIndex = 0;
+
+        speciesConfigs.forEach((spec) => {
+          const headGeo = createWildflowerHeadGeometry(spec.type);
+          const headInstMesh = new THREE.InstancedMesh(headGeo, wildflowerMat, spec.count);
+
+          for (let i = 0; i < spec.count; i++) {
+            const u = Math.random();
+            // Concentrate 72% of wildflowers into the sweeping forward valley & background hills (-Z vista)
+            // while keeping 28% all around the hero flower for close/mid shots
+            const inForwardVista = Math.random() < 0.72;
+            const radius = inForwardVista
+              ? (1.2 + Math.pow(u, 0.92) * 112.0)
+              : (1.15 + Math.pow(u, 1.15) * 48.0);
+            const theta = inForwardVista
+              ? (-Math.PI * 0.04 - Math.random() * Math.PI * 0.92) // spans full background valley horizon
+              : (Math.random() * Math.PI * 2);
+
+            let x = Math.cos(theta) * radius;
+            const z = Math.sin(theta) * radius;
+
+            if (z > 0.3 && z < 3.4 && Math.abs(x) < 0.75) {
+              x += (x >= 0 ? 0.85 : -0.85);
+            }
+
+            const groundY = getTerrainHeight(x, z);
+            const stemHeight = spec.minH + Math.random() * (spec.maxH - spec.minH);
+            // Boost blossom scale slightly in the distant valley so the background hills read as a lush sea of color
+            const distanceScaleBoost = 1.0 + Math.max(0, radius - 14.0) * 0.022;
+            const flowerScale = (0.9 + Math.random() * 0.65) * distanceScaleBoost;
+
+            dummyHead.position.set(x, groundY + stemHeight, z);
+            dummyHead.rotation.set(
+              (Math.random() - 0.5) * 0.35,
+              Math.random() * Math.PI * 2,
+              (Math.random() - 0.5) * 0.35
+            );
+            dummyHead.scale.setScalar(flowerScale);
+            dummyHead.updateMatrix();
+            headInstMesh.setMatrixAt(i, dummyHead.matrix);
+
+            dummyStem.position.set(x, groundY + stemHeight, z);
+            dummyStem.rotation.set(0, 0, 0);
+            dummyStem.scale.set(1, stemHeight, 1);
+            dummyStem.updateMatrix();
+            stemInstMesh.setMatrixAt(globalStemIndex++, dummyStem.matrix);
+
+            const hex = spec.colors[i % spec.colors.length];
+            colObj.set(hex).offsetHSL((Math.random() - 0.5) * 0.03, 0, (Math.random() - 0.5) * 0.05);
+            headInstMesh.setColorAt(i, colObj);
+          }
+
+          headInstMesh.instanceMatrix.needsUpdate = true;
+          headInstMesh.instanceColor.needsUpdate = true;
+          scene.add(headInstMesh);
+        });
+
+        stemInstMesh.instanceMatrix.needsUpdate = true;
+        scene.add(stemInstMesh);
+      }
+
+      populateWildflowers();
+
+      /* ==========================================================================
+       * 10. ROMANTIC FLOATING SILK ROSE PETALS & GLOWING POLLEN BOKEH
+       * ========================================================================== */
+      // 10A. 220 Drifting 3D Silk Petals that tumble through the air on the breeze
+      const floatingPetalCount = 220;
+      const floatingPetalGeo = createHeroPetalGeometry(0.18, 0.24, 4, 5);
+      const floatingPetalMat = new THREE.MeshStandardMaterial({
+        color: 0xfb7185,
+        emissive: 0x9f1239,
+        emissiveIntensity: 0.25,
+        roughness: 0.4,
+        side: THREE.DoubleSide
+      });
+      const floatingPetalInst = new THREE.InstancedMesh(floatingPetalGeo, floatingPetalMat, floatingPetalCount);
+      scene.add(floatingPetalInst);
+
+      const floatingPetalsData = [];
+      const petalDummy = new THREE.Object3D();
+      const pColorObj = new THREE.Color();
+      const romanticPetalPalette = ['#fb7185', '#fda4af', '#f43f5e', '#fecdd3', '#fde047'];
+
+      for (let i = 0; i < floatingPetalCount; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const rad = 0.3 + Math.pow(Math.random(), 1.3) * 32.0;
+        const x = Math.cos(ang) * rad;
+        const z = Math.sin(ang) * rad;
+        const y = getTerrainHeight(x, z) + 0.6 + Math.random() * 6.5;
+
+        floatingPetalsData.push({
+          pos: new THREE.Vector3(x, y, z),
+          vel: new THREE.Vector3((Math.random() - 0.5) * 0.3, -0.18 - Math.random() * 0.15, (Math.random() - 0.5) * 0.3),
+          rot: new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6),
+          rotSpeed: new THREE.Vector3((Math.random() - 0.5) * 2.4, (Math.random() - 0.5) * 2.4, (Math.random() - 0.5) * 2.4),
+          scale: 0.55 + Math.random() * 0.75,
+          phase: Math.random() * 10
+        });
+
+        pColorObj.set(romanticPetalPalette[i % romanticPetalPalette.length]);
+        floatingPetalInst.setColorAt(i, pColorObj);
+      }
+      floatingPetalInst.instanceColor.needsUpdate = true;
+
+      // 10B. 1600 Luminous Pollen & Romantic Bokeh Particles
+      const pollenCount = 1600;
+      const pollenGeo = new THREE.BufferGeometry();
+      const pollenPositions = new Float32Array(pollenCount * 3);
+      const pollenVelocities = new Float32Array(pollenCount * 3);
+      const pollenScales = new Float32Array(pollenCount);
+      const pollenColors = new Float32Array(pollenCount * 3);
+
+      const pColGold = new THREE.Color('#fde68a');
+      const pColRose = new THREE.Color('#fda4af');
+      const pColPink = new THREE.Color('#f472b6');
+
+      for (let i = 0; i < pollenCount; i++) {
+        if (i < 350) {
+          const r = 0.15 + Math.random() * 2.2;
+          const ang = Math.random() * Math.PI * 2;
+          pollenPositions[i * 3] = Math.cos(ang) * r;
+          pollenPositions[i * 3 + 1] = 0.4 + Math.random() * 2.6;
+          pollenPositions[i * 3 + 2] = Math.sin(ang) * r;
+        } else {
+          const r = 1.5 + Math.pow(Math.random(), 1.2) * 48.0;
+          const ang = Math.random() * Math.PI * 2;
+          const x = Math.cos(ang) * r;
+          const z = Math.sin(ang) * r;
+          pollenPositions[i * 3] = x;
+          pollenPositions[i * 3 + 1] = getTerrainHeight(x, z) + 0.4 + Math.random() * 4.5;
+          pollenPositions[i * 3 + 2] = z;
+        }
+
+        pollenVelocities[i * 3] = (Math.random() - 0.5) * 0.2;
+        pollenVelocities[i * 3 + 1] = 0.08 + Math.random() * 0.18;
+        pollenVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.2;
+
+        pollenScales[i] = 0.6 + Math.random() * 1.8;
+
+        const c = i % 3 === 0 ? pColRose : (i % 5 === 0 ? pColPink : pColGold);
+        pollenColors[i * 3] = c.r;
+        pollenColors[i * 3 + 1] = c.g;
+        pollenColors[i * 3 + 2] = c.b;
+      }
+
+      pollenGeo.setAttribute('position', new THREE.BufferAttribute(pollenPositions, 3));
+      pollenGeo.setAttribute('aScale', new THREE.BufferAttribute(pollenScales, 1));
+      pollenGeo.setAttribute('aColor', new THREE.BufferAttribute(pollenColors, 3));
+
+      const pollenMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uTime: { value: 0 },
+          uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+          uBioGlow: { value: activeLight.bioGlow }
+        },
+        vertexShader: `
+          uniform float uTime;
+          uniform float uPixelRatio;
+          attribute float aScale;
+          attribute vec3 aColor;
+          varying vec3 vColor;
+          varying float vAlpha;
+
+          void main() {
+            vColor = aColor;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+
+            float dist = max(-mvPosition.z, 0.5);
+            gl_PointSize = (28.0 * aScale * uPixelRatio) / dist;
+            gl_PointSize = clamp(gl_PointSize, 2.0, 42.0);
+
+            float twinkle = 0.65 + 0.35 * sin(uTime * 3.2 + aScale * 12.0);
+            vAlpha = twinkle * smoothstep(65.0, 8.0, dist);
+          }
+        `,
+        fragmentShader: `
+          uniform float uBioGlow;
+          varying vec3 vColor;
+          varying float vAlpha;
+
+          void main() {
+            vec2 uv = gl_PointCoord - vec2(0.5);
+            float d = length(uv);
+            if (d > 0.5) discard;
+
+            float core = smoothstep(0.5, 0.05, d);
+            float glow = pow(1.0 - d * 2.0, 2.2);
+            vec3 col = vColor * (1.1 + uBioGlow * 0.45);
+            gl_FragColor = vec4(col, (core * 0.85 + glow * 0.45) * vAlpha);
+          }
+        `
+      });
+
+      const pollenPoints = new THREE.Points(pollenGeo, pollenMat);
+      scene.add(pollenPoints);
+
+      /* ==========================================================================
+       * 11. REAL-TIME BOTANICAL GROWTH, SPRING-PHYSICS & CAMERA CHOREOGRAPHY
+       * ========================================================================== */
+      // Frame the entire tender shoot at Stage 1, and keep the upper stem + leaves + blooming crown together in Stage 2
+      const camPosSprout = new THREE.Vector3(0.0, 0.62, 1.82);
+      const camPosMacro  = new THREE.Vector3(0.26, 2.02, 2.38);
+      const camPosMid    = new THREE.Vector3(0.48, 2.65, 3.55);
+      const camPosWide   = new THREE.Vector3(0.0, 6.60, 15.80);
+
+      const lookAtSprout = new THREE.Vector3(0.0, 0.48, 0.0);
+      const lookAtMacro  = new THREE.Vector3(0.0, 1.86, 0.0);
+      const lookAtMid    = new THREE.Vector3(0.0, 1.95, -1.4);
+      const lookAtWide   = new THREE.Vector3(0.0, 1.85, -18.0);
+
+      function evaluateGrowthPhysicsAndCamera(progress, dt, elapsedTime) {
+        const effectiveWind = state.windStrength + state.windGustBoost;
+
+        // STAGE 1: Hero Stem Sprouting & Elongation (progress 0.00 -> 0.26)
+        const stemGrowthTarget = THREE.MathUtils.smoothstep(progress, 0.0, 0.26);
+        state.stemGrowth = stemGrowthTarget;
+
+        // STAGE 2: Hero Flower Anthesis / Blooming (progress 0.14 -> 0.50)
+        const bloomTarget = THREE.MathUtils.smoothstep(progress, 0.14, 0.50);
+        state.bloomAmount = bloomTarget;
+        heroPetalUniforms.uBloom.value = bloomTarget;
+
+        // STAGE 3: Sympathetic Meadow Expansion Wave (progress 0.32 -> 0.98)
+        // Expands out to 130 meters so the entire background valley & distant hills are completely filled with blooms
+        const expansionNorm = THREE.MathUtils.smoothstep(progress, 0.32, 0.98);
+        state.expansionRadius = Math.pow(expansionNorm, 1.08) * 130.0;
+        meadowUniforms.uExpansionRadius.value = state.expansionRadius;
+        terrainUniforms.uExpansionRadius.value = state.expansionRadius;
+
+        // Update Interactive Click Wave Ring
+        if (state.clickWaveStrength > 0.005) {
+          state.clickWaveRadius += dt * 16.0;
+          state.clickWaveStrength *= Math.exp(-1.45 * dt);
+        } else {
+          state.clickWaveStrength = 0.0;
+        }
+        meadowUniforms.uClickWaveOrigin.value.copy(state.clickWaveOrigin);
+        meadowUniforms.uClickWaveRadius.value = state.clickWaveRadius;
+        meadowUniforms.uClickWaveStrength.value = state.clickWaveStrength;
+        terrainUniforms.uClickWaveOrigin.value.copy(state.clickWaveOrigin);
+        terrainUniforms.uClickWaveRadius.value = state.clickWaveRadius;
+        terrainUniforms.uClickWaveStrength.value = state.clickWaveStrength;
+
+        // --- HERO STEM & HEAD SPRING-DAMPER PHYSICS ---
+        // Start with a clearly visible 0.78m sculptural curved stem at 0% that grows up to 2.38m
+        const currentStemHeight = 0.78 + stemGrowthTarget * 1.60;
+        const heroWorldHead = new THREE.Vector3(0, heroBaseY + currentStemHeight, 0);
+        const cursorDistToHero = heroWorldHead.distanceTo(state.mouseWorldPos);
+        let cursorForceX = 0;
+        let cursorForceZ = 0;
+        if (cursorDistToHero < 2.2) {
+          const pushFactor = (1.0 - cursorDistToHero / 2.2) * 0.35;
+          cursorForceX = (heroWorldHead.z - state.mouseWorldPos.z) * pushFactor;
+          cursorForceZ = -(heroWorldHead.x - state.mouseWorldPos.x) * pushFactor;
+        }
+
+        // Graceful botanical S-arch while sprouting + wind sway + cursor touch
+        const sproutCrookZ = (1.0 - stemGrowthTarget) * 0.24;
+        heroSprings.stemBendX.target = Math.sin(elapsedTime * 1.45) * 0.06 * effectiveWind + cursorForceX;
+        heroSprings.stemBendZ.target = Math.cos(elapsedTime * 1.15) * 0.05 * effectiveWind + sproutCrookZ + cursorForceZ;
+        const bendX = heroSprings.stemBendX.update(dt);
+        const bendZ = heroSprings.stemBendZ.update(dt);
+
+        // Deform the Hero Stem vertices along a live curved growth spine
+        const stemPosAttr = heroStemGeo.attributes.position;
+        const stemArr = stemPosAttr.array;
+
+        for (let i = 0; i < stemPosAttr.count; i++) {
+          const ix = i * 3;
+          const ox = origStemPos[ix];
+          const oy = origStemPos[ix + 1]; // [0..1] along stem
+          const oz = origStemPos[ix + 2];
+
+          const hRatio = oy;
+          const sCurveX = Math.sin(hRatio * Math.PI * 1.2) * (0.07 + 0.03 * stemGrowthTarget) + Math.pow(hRatio, 1.7) * bendZ;
+          const sCurveZ = Math.cos(hRatio * Math.PI) * 0.04 * stemGrowthTarget + Math.pow(hRatio, 1.7) * bendX;
+          // Flare top of stem into the receptacle base beneath the petals
+          const receptacleFlare = 1.0 + Math.pow(Math.max(0.0, (hRatio - 0.88) / 0.12), 2.0) * 0.85;
+          const radiusScale = (0.82 + 0.18 * stemGrowthTarget) * receptacleFlare;
+
+          stemArr[ix]     = ox * radiusScale + sCurveX;
+          stemArr[ix + 1] = oy * currentStemHeight;
+          stemArr[ix + 2] = oz * radiusScale + sCurveZ;
+        }
+        stemPosAttr.needsUpdate = true;
+        heroStemGeo.computeVertexNormals();
+
+        // Position Hero Head at the exact tip of the deformed stem
+        const tipX = Math.sin(Math.PI * 1.2) * (0.07 + 0.03 * stemGrowthTarget) + bendZ;
+        const tipZ = Math.cos(Math.PI) * 0.04 * stemGrowthTarget + bendX;
+        heroHeadGroup.position.set(tipX, currentStemHeight, tipZ);
+
+        // Head nods gently at the top of the visible stem at 0%, then lifts gracefully while keeping stem neck visible
+        heroSprings.headNod.target = THREE.MathUtils.lerp(0.58, 0.18, THREE.MathUtils.smoothstep(progress, 0.04, 0.34));
+        const headNodVal = heroSprings.headNod.update(dt);
+        heroHeadGroup.rotation.x = headNodVal + bendX * 0.65;
+        heroHeadGroup.rotation.z = -bendZ * 0.65;
+
+        // Scale the bud from a compact shoot into a full lush blossom
+        heroSprings.bloomScale.target = 0.34 + 0.66 * THREE.MathUtils.smoothstep(progress, 0.0, 0.32);
+        const headScale = heroSprings.bloomScale.update(dt);
+        heroHeadGroup.scale.setScalar(headScale);
+
+        // Update 4 Stem Leaves with Spring Physics so lower leaves are visible on the stem from 0%
+        for (let i = 0; i < heroLeaves.length; i++) {
+          const lf = heroLeaves[i];
+          const baseLeafMin = i < 2 ? 0.42 : 0.14;
+          const leafActivated = Math.max(baseLeafMin, THREE.MathUtils.smoothstep(stemGrowthTarget, lf.attachRatio - 0.12, lf.attachRatio + 0.22));
+          lf.scaleSpring.target = leafActivated;
+          lf.angleSpring.target = THREE.MathUtils.lerp(0.38, 1.08, leafActivated) + Math.sin(elapsedTime * 2.0 + i) * 0.05 * effectiveWind;
+
+          const lScale = lf.scaleSpring.update(dt);
+          const lAngle = lf.angleSpring.update(dt);
+
+          const hRatio = lf.attachRatio;
+          const lx = Math.sin(hRatio * Math.PI * 1.2) * (0.07 + 0.03 * stemGrowthTarget) + Math.pow(hRatio, 1.7) * bendZ;
+          const lz = Math.cos(hRatio * Math.PI) * 0.04 * stemGrowthTarget + Math.pow(hRatio, 1.7) * bendX;
+          lf.pivot.position.set(lx, hRatio * currentStemHeight, lz);
+          lf.pivot.scale.setScalar(lScale);
+          lf.pivot.rotation.x = lAngle;
+        }
+
+        // Update 36 Hero Petals via Individual Spring-Damper Physics
+        for (let i = 0; i < heroPetals.length; i++) {
+          const p = heroPetals[i];
+          const ringDelay = (3 - p.ringIdx) * 0.09;
+          const localT = THREE.MathUtils.clamp((bloomTarget - ringDelay) / (1.0 - ringDelay), 0.0, 1.0);
+          const easedT = 1.0 - Math.pow(1.0 - localT, 2.4);
+
+          const windFlutter = Math.sin(elapsedTime * 2.1 + p.phaseOffset) * 0.035 * effectiveWind * (0.25 + 0.75 * easedT);
+          // Cursor brush impulse on individual petals
+          let cursorPetalPush = 0;
+          if (cursorDistToHero < 1.8) {
+            cursorPetalPush = (1.0 - cursorDistToHero / 1.8) * 0.18 * Math.sin(p.angle + elapsedTime * 4.0);
+          }
+
+          p.pitchSpring.target = THREE.MathUtils.lerp(p.closedPitch, p.openPitch, easedT) + windFlutter + cursorPetalPush;
+          p.rollSpring.target = p.azimuthJitter * easedT + Math.cos(elapsedTime * 1.7 + p.phaseOffset) * 0.02 * effectiveWind;
+
+          p.holder.rotation.x = p.pitchSpring.update(dt);
+          p.holder.rotation.z = p.rollSpring.update(dt);
+        }
+
+        // Update Calyx Sepals via Spring Physics
+        for (let i = 0; i < sepals.length; i++) {
+          const s = sepals[i];
+          const sepalT = THREE.MathUtils.smoothstep(bloomTarget, 0.0, 0.42);
+          s.spring.target = THREE.MathUtils.lerp(s.closedAngle, s.openAngle, sepalT);
+          s.mesh.rotation.x = s.spring.update(dt);
+        }
+
+        // Update Golden Stamens
+        for (let i = 0; i < stamens.length; i++) {
+          const st = stamens[i];
+          const stT = THREE.MathUtils.smoothstep(bloomTarget, 0.16, 0.75);
+          const sway = Math.sin(elapsedTime * 2.5 + st.phase) * 0.028 * effectiveWind;
+          st.fil.rotation.x = THREE.MathUtils.lerp(st.closedTilt, st.openTilt, stT) + sway;
+        }
+
+        // Update Companion Foreground Blooms (Sprout & Bloom as the radial wave reaches them)
+        for (let i = 0; i < companionFlowers.length; i++) {
+          const cf = companionFlowers[i];
+          const waveReach = THREE.MathUtils.clamp((state.expansionRadius - cf.dist + 2.2) / 3.5, 0.0, 1.0);
+          cf.growthSpring.target = waveReach;
+          const gVal = cf.growthSpring.update(dt);
+
+          const curH = Math.max(0.02, gVal * cf.maxHeight);
+          cf.cStem.scale.set(0.6 + 0.4 * gVal, curH, 0.6 + 0.4 * gVal);
+
+          const swayX = Math.sin(elapsedTime * 1.6 + cf.swayPhase) * 0.045 * effectiveWind * gVal;
+          const swayZ = Math.cos(elapsedTime * 1.3 + cf.swayPhase) * 0.045 * effectiveWind * gVal;
+          cf.group.rotation.x = swayX;
+          cf.group.rotation.z = swayZ;
+
+          cf.head.position.y = curH;
+          cf.head.scale.setScalar(Math.max(0.01, gVal * cf.maxScale));
+          cf.head.rotation.x = THREE.MathUtils.lerp(0.6, 0.18, gVal);
+
+          const cBloom = THREE.MathUtils.smoothstep(gVal, 0.35, 1.0);
+          for (let p = 0; p < cf.petals.length; p++) {
+            const cp = cf.petals[p];
+            cp.spring.target = THREE.MathUtils.lerp(cp.closed, cp.open, cBloom);
+            cp.mesh.rotation.x = cp.spring.update(dt);
+          }
+        }
+
+        // Brighten warm inner core light & position it with the growing head
+        heroCoreLight.position.set(tipX, heroBaseY + currentStemHeight + 0.1, tipZ);
+        heroCoreLight.intensity = 0.45 + stemGrowthTarget * 0.55 + bloomTarget * 2.4;
+        heroStemLight.position.set(0.75, heroBaseY + currentStemHeight * 0.68, 1.55);
+
+        // --- 4-STAGE CAMERA CHOREOGRAPHY ---
+        // Stage 1 (0.00 -> 0.24): Follow the tender sprout rising from the mossy soil up to eye level
+        // Stage 2 (0.24 -> 0.48): Intimate orbiting macro pull-back as the 36 petals bloom with physics
+        // Stage 3 (0.48 -> 1.00): Sweeping crane ascent revealing the expanding wave of 24,800 blooming wildflowers
+        const currentCamPos = new THREE.Vector3();
+        const currentLookAt = new THREE.Vector3();
+
+        if (progress < 0.24) {
+          const t1 = THREE.MathUtils.smoothstep(progress, 0.0, 0.24);
+          currentCamPos.lerpVectors(camPosSprout, camPosMacro, t1);
+          currentCamPos.x += Math.sin(t1 * Math.PI) * 0.22;
+          currentLookAt.lerpVectors(lookAtSprout, lookAtMacro, t1);
+        } else if (progress < 0.48) {
+          const t2 = THREE.MathUtils.smoothstep(progress, 0.24, 0.48);
+          currentCamPos.lerpVectors(camPosMacro, camPosMid, t2);
+          currentCamPos.x += Math.sin(t2 * Math.PI) * 0.42;
+          currentLookAt.lerpVectors(lookAtMacro, lookAtMid, t2);
+        } else {
+          const t3 = THREE.MathUtils.smoothstep(progress, 0.48, 1.0);
+          currentCamPos.lerpVectors(camPosMid, camPosWide, t3);
+          currentCamPos.y += Math.sin(t3 * Math.PI) * 1.25;
+          currentLookAt.lerpVectors(lookAtMid, lookAtWide, t3);
+        }
+
+        state.pointerSmooth.lerp(state.pointerNDC, 0.06);
+        state.userOrbitOffset.lerp(state.targetOrbitOffset, 0.08);
+
+        const parallaxScale = 0.3 + progress * 1.45;
+        currentCamPos.x += (state.pointerSmooth.x * 0.65 + state.userOrbitOffset.x * 2.2) * parallaxScale;
+        currentCamPos.y += (state.pointerSmooth.y * 0.35 + state.userOrbitOffset.y * 1.1) * parallaxScale;
+        const minCamY = getTerrainHeight(currentCamPos.x, currentCamPos.z) + 0.55;
+        currentCamPos.y = Math.max(currentCamPos.y, minCamY);
+
+        camera.position.copy(currentCamPos);
+        camera.lookAt(currentLookAt);
+      }
+
+      /* ==========================================================================
+       * 12. LIGHTING & ROMANTIC ATMOSPHERE INTERPOLATION
+       * ========================================================================== */
+      function lerpPaletteStates(pA, pB, t) {
+        activeLight.skyZenith.lerpColors(pA.skyZenith, pB.skyZenith, t);
+        activeLight.skyHorizon.lerpColors(pA.skyHorizon, pB.skyHorizon, t);
+        activeLight.sunGlow.lerpColors(pA.sunGlow, pB.sunGlow, t);
+        activeLight.fogColor.lerpColors(pA.fogColor, pB.fogColor, t);
+        activeLight.fogDensity = THREE.MathUtils.lerp(pA.fogDensity, pB.fogDensity, t);
+        activeLight.ambientColor.lerpColors(pA.ambientColor, pB.ambientColor, t);
+        activeLight.ambientIntensity = THREE.MathUtils.lerp(pA.ambientIntensity, pB.ambientIntensity, t);
+        activeLight.sunColor.lerpColors(pA.sunColor, pB.sunColor, t);
+        activeLight.sunIntensity = THREE.MathUtils.lerp(pA.sunIntensity, pB.sunIntensity, t);
+        activeLight.rimColor.lerpColors(pA.rimColor, pB.rimColor, t);
+        activeLight.rimIntensity = THREE.MathUtils.lerp(pA.rimIntensity, pB.rimIntensity, t);
+        activeLight.sunDir.lerpVectors(pA.sunDir, pB.sunDir, t).normalize();
+        activeLight.bioGlow = THREE.MathUtils.lerp(pA.bioGlow, pB.bioGlow, t);
+      }
+
+      function updateAtmosphere(dt) {
+        if (state.lightingMode === 'auto') {
+          // Story Sync: Cool Dawn Mist (sprouting) -> Golden Hour (hero bloom) -> Romantic Rose Sunset (meadow expansion)
+          if (state.timelineProgress < 0.45) {
+            const t = THREE.MathUtils.smoothstep(state.timelineProgress, 0.05, 0.45);
+            lerpPaletteStates(palettes.dawn, palettes.golden, t);
+          } else {
+            const t = THREE.MathUtils.smoothstep(state.timelineProgress, 0.45, 0.90);
+            lerpPaletteStates(palettes.golden, palettes.romantic, t);
+          }
+        } else {
+          const targetP = palettes[state.lightingMode] || palettes.romantic;
+          const speed = Math.min(dt * 3.2, 1.0);
+          lerpPaletteStates(activeLight, targetP, speed);
+        }
+
+        scene.fog.color.copy(activeLight.fogColor);
+        scene.fog.density = activeLight.fogDensity;
+
+        ambientLight.color.copy(activeLight.ambientColor);
+        ambientLight.intensity = activeLight.ambientIntensity;
+
+        sunLight.color.copy(activeLight.sunColor);
+        sunLight.intensity = activeLight.sunIntensity;
+        sunLight.position.copy(activeLight.sunDir).multiplyScalar(60);
+
+        rimLight.color.copy(activeLight.rimColor);
+        rimLight.intensity = activeLight.rimIntensity;
+
+        skyUniforms.uBioGlow.value = activeLight.bioGlow;
+        heroPetalUniforms.uBioGlow.value = activeLight.bioGlow;
+        meadowUniforms.uBioGlow.value = activeLight.bioGlow;
+        meadowUniforms.uFogDensity.value = activeLight.fogDensity;
+        terrainUniforms.uFogDensity.value = activeLight.fogDensity;
+        pollenMat.uniforms.uBioGlow.value = activeLight.bioGlow;
+
+        // Smoothly illuminate the 3,500 3D stars in Starlit Romance (and subtly in Rose Sunset)
+        const targetStarAlpha = state.lightingMode === 'twilight'
+          ? 1.0
+          : THREE.MathUtils.smoothstep(activeLight.bioGlow, 0.32, 1.35);
+        starMat.uniforms.uStarIntensity.value = THREE.MathUtils.lerp(
+          starMat.uniforms.uStarIntensity.value,
+          targetStarAlpha,
+          Math.min(dt * 4.0, 1.0)
+        );
+      }
+
+      /* ==========================================================================
+       * 13. GSAP MASTER OPENING TIMELINE & UI CONTROLS
+       * ========================================================================== */
+      const scrubberEl = document.getElementById('timeline-scrubber');
+      const pctDesktopEl = document.getElementById('timeline-pct-desktop');
+      const pctMobileEl = document.getElementById('timeline-pct-mobile');
+      const statBloomEl = document.getElementById('stat-bloom-pct');
+      const statExpansionEl = document.getElementById('stat-expansion-radius');
+      const phaseLabelEl = document.getElementById('phase-label');
+      const heroCaptionEl = document.getElementById('hero-dynamic-caption');
+      const iconPlay = document.getElementById('icon-play');
+      const iconPause = document.getElementById('icon-pause');
+
+      function syncUIDisplays() {
+        const pct = Math.round(state.timelineProgress * 100);
+        scrubberEl.value = state.timelineProgress;
+        pctDesktopEl.textContent = pct + '%';
+        pctMobileEl.textContent = pct + '%';
+        statBloomEl.textContent = Math.round(state.bloomAmount * 100) + '%';
+        if (statExpansionEl) {
+          statExpansionEl.textContent = Math.round(state.expansionRadius) + 'm';
+        }
+
+        if (state.timelineProgress < 0.20) {
+          phaseLabelEl.textContent = 'PHASE I: AWAKENING SPROUT';
+          heroCaptionEl.textContent = 'From the quiet mossy earth, a tender shoot rises and uncurls its stem and leaves with natural spring physics.';
+        } else if (state.timelineProgress < 0.46) {
+          phaseLabelEl.textContent = 'PHASE II: SPRING-PHYSICS ANTHESIS';
+          heroCaptionEl.textContent = 'Thirty-six velvety petals unfurl with individual elastic inertia, releasing drifting silk petals and warm golden light.';
+        } else if (state.timelineProgress < 0.78) {
+          phaseLabelEl.textContent = 'PHASE III: SYMPATHETIC BLOOM WAVE';
+          heroCaptionEl.textContent = 'A luminous rose-gold wave ripples outward across the hills, causing thousands of companion wildflowers to sprout and bloom together.';
+        } else {
+          phaseLabelEl.textContent = 'PHASE IV: ETERNAL ROMANTIC VALLEY';
+          heroCaptionEl.textContent = 'Click anywhere on the meadow to send a romantic bloom ripple, or sweep your cursor to caress the flowers and drifting petals.';
+        }
+      }
+
+      function setPlayingState(playing) {
+        state.isPlaying = playing;
+        if (playing) {
+          iconPlay.classList.add('hidden');
+          iconPause.classList.remove('hidden');
+        } else {
+          iconPlay.classList.remove('hidden');
+          iconPause.classList.add('hidden');
+        }
+      }
+
+      // Master 18-second choreographed GSAP timeline
+      const masterTimeline = gsap.timeline({
+        onUpdate: function () {
+          syncUIDisplays();
+        },
+        onComplete: function () {
+          setPlayingState(false);
+        }
+      });
+
+      masterTimeline.to(state, {
+        timelineProgress: 0.28,
+        duration: 4.8,
+        ease: 'power2.inOut'
+      }).to(state, {
+        timelineProgress: 0.54,
+        duration: 5.2,
+        ease: 'power2.inOut'
+      }).to(state, {
+        timelineProgress: 1.0,
+        duration: 8.5,
+        ease: 'power2.inOut'
+      });
+
+      // Play / Pause Button
+      document.getElementById('btn-play-pause').addEventListener('click', () => {
+        if (state.isPlaying) {
+          masterTimeline.pause();
+          setPlayingState(false);
+        } else {
+          if (state.timelineProgress >= 0.995) {
+            masterTimeline.restart();
+          } else {
+            masterTimeline.play();
+          }
+          setPlayingState(true);
+        }
+      });
+
+      // Replay Buttons
+      function triggerReplay() {
+        triggerPollenGust(0.95);
+        masterTimeline.restart();
+        setPlayingState(true);
+      }
+      document.getElementById('btn-replay').addEventListener('click', triggerReplay);
+      document.getElementById('btn-hero-bloom').addEventListener('click', triggerReplay);
+
+      // Jump to Full Meadow Button
+      document.getElementById('btn-jump-meadow').addEventListener('click', () => {
+        masterTimeline.pause();
+        setPlayingState(false);
+        gsap.to(state, {
+          timelineProgress: 1.0,
+          duration: 3.2,
+          ease: 'power3.inOut',
+          onUpdate: () => {
+            masterTimeline.progress(state.timelineProgress);
+            syncUIDisplays();
+          }
+        });
+      });
+
+      // Stage Marker Quick-Seek Buttons
+      document.querySelectorAll('[data-seek]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = parseFloat(btn.getAttribute('data-seek'));
+          masterTimeline.pause();
+          setPlayingState(false);
+          gsap.to(state, {
+            timelineProgress: target,
+            duration: 1.8,
+            ease: 'power2.out',
+            onUpdate: () => {
+              masterTimeline.progress(state.timelineProgress);
+              syncUIDisplays();
+            }
+          });
+        });
+      });
+
+      // Interactive Timeline Scrubber Input
+      scrubberEl.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        masterTimeline.pause();
+        setPlayingState(false);
+        state.timelineProgress = val;
+        masterTimeline.progress(val);
+        syncUIDisplays();
+      });
+
+      // Mouse Wheel Scroll-Scrubbing Support
+      window.addEventListener('wheel', (e) => {
+        masterTimeline.pause();
+        setPlayingState(false);
+        const delta = e.deltaY * 0.00045;
+        const target = THREE.MathUtils.clamp(state.timelineProgress + delta, 0.0, 1.0);
+        gsap.to(state, {
+          timelineProgress: target,
+          duration: 0.35,
+          ease: 'power2.out',
+          overwrite: 'auto',
+          onUpdate: () => {
+            masterTimeline.progress(state.timelineProgress);
+            syncUIDisplays();
+          }
+        });
+      }, { passive: true });
+
+      // Time-of-Day Lighting Switcher
+      const lightingBtns = document.querySelectorAll('.lighting-btn');
+      lightingBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          lightingBtns.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.lightingMode = btn.getAttribute('data-lighting');
+        });
+      });
+
+      // Wind Intensity Slider & Romantic Petal Breeze Trigger
+      const windSlider = document.getElementById('wind-slider');
+      const windValLabel = document.getElementById('wind-value-label');
+      const statWindVel = document.getElementById('stat-wind-vel');
+
+      function updateWindLabel(val) {
+        windValLabel.textContent = val.toFixed(1) + 'x';
+        if (val < 0.6) statWindVel.textContent = 'Whisper';
+        else if (val < 1.3) statWindVel.textContent = 'Tender';
+        else if (val < 1.9) statWindVel.textContent = 'Sweeping';
+        else statWindVel.textContent = 'Passionate';
+      }
+
+      windSlider.addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        state.windStrength = v;
+        updateWindLabel(v);
+      });
+
+      function triggerPollenGust(strength = 1.4) {
+        gsap.fromTo(state,
+          { windGustBoost: strength },
+          { windGustBoost: 0.0, duration: 2.8, ease: 'power2.out' }
+        );
+        // Apply physical spring impulse to the hero stem & petals!
+        heroSprings.stemBendZ.impulse(strength * 0.45);
+        heroSprings.stemBendX.impulse((Math.random() - 0.5) * strength * 0.35);
+        heroPetals.forEach((p) => {
+          p.pitchSpring.impulse((Math.random() - 0.3) * 0.65 * strength);
+          p.rollSpring.impulse((Math.random() - 0.5) * 0.45 * strength);
+        });
+
+        // Swirl pollen & floating rose petals upward
+        for (let i = 0; i < pollenCount; i++) {
+          pollenVelocities[i * 3] += (Math.random() - 0.3) * 0.9 * strength;
+          pollenVelocities[i * 3 + 1] += (0.25 + Math.random() * 0.65) * strength;
+          pollenVelocities[i * 3 + 2] += (Math.random() - 0.5) * 0.9 * strength;
+        }
+        for (let i = 0; i < floatingPetalCount; i++) {
+          floatingPetalsData[i].vel.x += (0.4 + Math.random() * 0.8) * strength;
+          floatingPetalsData[i].vel.y += (0.35 + Math.random() * 0.6) * strength;
+        }
+        if (state.audioEnabled) triggerHarmonicChord();
+      }
+
+      document.getElementById('btn-wind-gust').addEventListener('click', () => triggerPollenGust(1.65));
+
+      // Exhibition UI Hide / Show Toggle
+      const heroEditorialEl = document.getElementById('hero-editorial-overlay');
+      const toggleUiBtn = document.getElementById('btn-toggle-ui');
+      const toggleUiText = document.getElementById('toggle-ui-text');
+
+      toggleUiBtn.addEventListener('click', () => {
+        state.uiVisible = !state.uiVisible;
+        if (state.uiVisible) {
+          heroEditorialEl.classList.remove('ui-hidden');
+          toggleUiBtn.classList.add('active');
+          toggleUiText.textContent = 'Exhibition UI';
+        } else {
+          heroEditorialEl.classList.add('ui-hidden');
+          toggleUiBtn.classList.remove('active');
+          toggleUiText.textContent = 'Pure 3D Canvas';
+        }
+      });
+
+      /* ==========================================================================
+       * 14. INTERACTIVE CURSOR WIND RIPPLE, CLICK BLOOM WAVE & ORBIT DRAG
+       * ========================================================================== */
+      const cursorRing = document.getElementById('wind-cursor-ring');
+
+      function handlePointerMove(clientX, clientY) {
+        if (cursorRing) {
+          cursorRing.style.left = clientX + 'px';
+          cursorRing.style.top = clientY + 'px';
+        }
+
+        const nx = (clientX / window.innerWidth) * 2 - 1;
+        const ny = -(clientY / window.innerHeight) * 2 + 1;
+        state.pointerNDC.set(nx, ny);
+
+        if (state.isDraggingOrbit) {
+          const dx = nx - state.dragStart.x;
+          const dy = ny - state.dragStart.y;
+          if (Math.abs(dx) > 0.008 || Math.abs(dy) > 0.008) {
+            state.dragMoved = true;
+          }
+          state.targetOrbitOffset.x = THREE.MathUtils.clamp(state.targetOrbitOffset.x + dx * 0.85, -1.6, 1.6);
+          state.targetOrbitOffset.y = THREE.MathUtils.clamp(state.targetOrbitOffset.y + dy * 0.65, -0.8, 1.2);
+          state.dragStart.set(nx, ny);
+        }
+
+        raycaster.setFromCamera(state.pointerNDC, camera);
+        const hitPoint = new THREE.Vector3();
+        if (raycaster.ray.intersectPlane(raycastPlane, hitPoint)) {
+          hitPoint.y = getTerrainHeight(hitPoint.x, hitPoint.z) + 1.0;
+          state.mouseWorldVel.subVectors(hitPoint, state.lastMouseWorldPos);
+          state.lastMouseWorldPos.copy(hitPoint);
+          state.mouseWorldPos.copy(hitPoint);
+        }
+      }
+
+      window.addEventListener('mousemove', (e) => {
+        handlePointerMove(e.clientX, e.clientY);
+      });
+
+      container.addEventListener('mousedown', (e) => {
+        state.isDraggingOrbit = true;
+        state.dragMoved = false;
+        const nx = (e.clientX / window.innerWidth) * 2 - 1;
+        const ny = -(e.clientY / window.innerHeight) * 2 + 1;
+        state.dragStart.set(nx, ny);
+        if (cursorRing) {
+          cursorRing.style.width = '64px';
+          cursorRing.style.height = '64px';
+          cursorRing.style.borderColor = 'rgba(251, 113, 133, 0.85)';
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (state.isDraggingOrbit && !state.dragMoved) {
+          // Clicking without dragging triggers a romantic bloom ripple wave from the cursor point!
+          state.clickWaveOrigin.copy(state.mouseWorldPos);
+          state.clickWaveRadius = 0.2;
+          state.clickWaveStrength = 1.35;
+          heroSprings.stemBendZ.impulse(0.22);
+          heroPetals.forEach((p) => p.pitchSpring.impulse((Math.random() - 0.3) * 0.35));
+          if (state.audioEnabled) triggerHarmonicChord();
+        }
+        state.isDraggingOrbit = false;
+        if (cursorRing) {
+          cursorRing.style.width = '44px';
+          cursorRing.style.height = '44px';
+          cursorRing.style.borderColor = 'rgba(253, 230, 138, 0.35)';
+        }
+      });
+
+      // Touch Support
+      container.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          state.isDraggingOrbit = true;
+          state.dragMoved = false;
+          const t = e.touches[0];
+          const nx = (t.clientX / window.innerWidth) * 2 - 1;
+          const ny = -(t.clientY / window.innerHeight) * 2 + 1;
+          state.dragStart.set(nx, ny);
+          handlePointerMove(t.clientX, t.clientY);
+        }
+      }, { passive: true });
+
+      container.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+          const t = e.touches[0];
+          handlePointerMove(t.clientX, t.clientY);
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchend', () => {
+        state.isDraggingOrbit = false;
+      });
+
+      /* ==========================================================================
+       * 15. PROCEDURAL WEB AUDIO BOTANICAL AMBIENT SYNTH (User-Triggered)
+       * ========================================================================== */
+      let audioCtx = null;
+      let masterGain = null;
+
+      function initProceduralAudio() {
+        if (audioCtx) return;
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+
+        audioCtx = new AudioContextClass();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.14;
+        masterGain.connect(audioCtx.destination);
+
+        // Warm continuous harmonic drone (Fmaj9 botanical pad)
+        const padFreqs = [174.61, 220.0, 261.63, 329.63, 392.0];
+        padFreqs.forEach((f, idx) => {
+          const osc = audioCtx.createOscillator();
+          const oscGain = audioCtx.createGain();
+          osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+          osc.frequency.value = f;
+          oscGain.gain.value = 0.08 / padFreqs.length;
+
+          const filter = audioCtx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.value = 620;
+
+          osc.connect(filter);
+          filter.connect(oscGain);
+          oscGain.connect(masterGain);
+          osc.start();
+        });
+      }
+
+      function triggerHarmonicChord() {
+        if (!audioCtx || !state.audioEnabled) return;
+        const notes = [523.25, 659.25, 783.99, 987.77, 1174.66];
+        const now = audioCtx.currentTime;
+        notes.forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.09);
+
+          g.gain.setValueAtTime(0.0001, now + i * 0.09);
+          g.gain.linearRampToValueAtTime(0.06, now + i * 0.09 + 0.08);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.09 + 2.4);
+
+          osc.connect(g);
+          g.connect(masterGain);
+          osc.start(now + i * 0.09);
+          osc.stop(now + i * 0.09 + 2.5);
+        });
+      }
+
+      const btnAudio = document.getElementById('btn-audio-toggle');
+      const iconAudioOff = document.getElementById('icon-audio-off');
+      const iconAudioOn = document.getElementById('icon-audio-on');
+      const audioStatusText = document.getElementById('audio-status-text');
+
+      btnAudio.addEventListener('click', () => {
+        initProceduralAudio();
+        state.audioEnabled = !state.audioEnabled;
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        if (state.audioEnabled) {
+          if (masterGain) gsap.to(masterGain.gain, { value: 0.18, duration: 0.8 });
+          iconAudioOff.classList.add('hidden');
+          iconAudioOn.classList.remove('hidden');
+          btnAudio.classList.add('active');
+          audioStatusText.textContent = 'Sound On';
+          triggerHarmonicChord();
+        } else {
+          if (masterGain) gsap.to(masterGain.gain, { value: 0.0001, duration: 0.5 });
+          iconAudioOff.classList.remove('hidden');
+          iconAudioOn.classList.add('hidden');
+          btnAudio.classList.remove('active');
+          audioStatusText.textContent = 'Sound Off';
+        }
+      });
+
+      /* ==========================================================================
+       * 16. RESPONSIVE RESIZE HANDLER
+       * ========================================================================== */
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        const pr = Math.min(window.devicePixelRatio, 2);
+        renderer.setPixelRatio(pr);
+        pollenMat.uniforms.uPixelRatio.value = pr;
+      });
+
+      /* ==========================================================================
+       * 17. REAL-TIME ANIMATION LOOP (Pollen, Silk Petals, Physics & Render)
+       * ========================================================================== */
+      const clock = new THREE.Clock();
+
+      function updateFloatingSilkPetals(dt, elapsedTime) {
+        const totalWind = state.windStrength + state.windGustBoost;
+        const mx = state.mouseWorldPos.x;
+        const my = state.mouseWorldPos.y;
+        const mz = state.mouseWorldPos.z;
+
+        // Only release floating silk petals once the hero flower starts blooming
+        const visibilityScale = THREE.MathUtils.smoothstep(state.bloomAmount, 0.1, 0.55);
+
+        for (let i = 0; i < floatingPetalCount; i++) {
+          const fp = floatingPetalsData[i];
+
+          const flutterX = Math.sin(elapsedTime * 1.8 + fp.phase) * 0.45 * totalWind;
+          const flutterZ = Math.cos(elapsedTime * 1.5 + fp.phase) * 0.35 * totalWind;
+
+          fp.pos.x += (fp.vel.x + 0.38 * totalWind + flutterX) * dt;
+          fp.pos.y += (fp.vel.y + Math.sin(elapsedTime * 2.4 + fp.phase) * 0.12) * dt;
+          fp.pos.z += (fp.vel.z + flutterZ) * dt;
+
+          fp.vel.x *= 0.96;
+          fp.vel.y = THREE.MathUtils.lerp(fp.vel.y, -0.18, 0.03);
+          fp.vel.z *= 0.96;
+
+          // Cursor breeze swirl on floating petals
+          const dx = fp.pos.x - mx;
+          const dy = fp.pos.y - my;
+          const dz = fp.pos.z - mz;
+          const d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 < 16.0 && d2 > 0.01) {
+            const d = Math.sqrt(d2);
+            const push = (1.0 - d / 4.0) * 3.5 * dt;
+            fp.pos.x += (dx / d) * push;
+            fp.pos.y += Math.abs(push) * 0.85;
+            fp.pos.z += (dz / d) * push;
+          }
+
+          fp.rot.x += fp.rotSpeed.x * dt * (0.7 + 0.5 * totalWind);
+          fp.rot.y += fp.rotSpeed.y * dt * (0.7 + 0.5 * totalWind);
+          fp.rot.z += fp.rotSpeed.z * dt * (0.7 + 0.5 * totalWind);
+
+          const groundY = getTerrainHeight(fp.pos.x, fp.pos.z);
+          if (fp.pos.y < groundY + 0.15 || fp.pos.x > 40 || fp.pos.y > groundY + 9.0) {
+            if (i < 65) {
+              // Respawn near the blooming hero flower crown
+              const a = Math.random() * Math.PI * 2;
+              const r = 0.15 + Math.random() * 0.8;
+              fp.pos.set(Math.cos(a) * r, heroBaseY + 2.2 + Math.random() * 0.6, Math.sin(a) * r);
+            } else {
+              const a = Math.random() * Math.PI * 2;
+              const r = 1.5 + Math.random() * 32.0;
+              fp.pos.x = Math.cos(a) * r;
+              fp.pos.z = Math.sin(a) * r;
+              fp.pos.y = getTerrainHeight(fp.pos.x, fp.pos.z) + 3.5 + Math.random() * 4.0;
+            }
+          }
+
+          petalDummy.position.copy(fp.pos);
+          petalDummy.rotation.copy(fp.rot);
+          petalDummy.scale.setScalar(fp.scale * visibilityScale);
+          petalDummy.updateMatrix();
+          floatingPetalInst.setMatrixAt(i, petalDummy.matrix);
+        }
+        floatingPetalInst.instanceMatrix.needsUpdate = true;
+      }
+
+      function updatePollenParticles(dt, elapsedTime) {
+        const posAttr = pollenGeo.attributes.position;
+        const posArr = posAttr.array;
+        const totalWind = state.windStrength + state.windGustBoost;
+        const mx = state.mouseWorldPos.x;
+        const my = state.mouseWorldPos.y;
+        const mz = state.mouseWorldPos.z;
+
+        for (let i = 0; i < pollenCount; i++) {
+          const idx = i * 3;
+          let px = posArr[idx];
+          let py = posArr[idx + 1];
+          let pz = posArr[idx + 2];
+
+          const swirlX = Math.sin(elapsedTime * 0.9 + py * 0.8 + i) * 0.22 * totalWind;
+          const swirlZ = Math.cos(elapsedTime * 0.7 + px * 0.8 + i) * 0.22 * totalWind;
+
+          px += (pollenVelocities[idx] + swirlX + 0.18 * totalWind) * dt;
+          py += pollenVelocities[idx + 1] * dt;
+          pz += (pollenVelocities[idx + 2] + swirlZ) * dt;
+
+          pollenVelocities[idx] *= 0.96;
+          pollenVelocities[idx + 1] = THREE.MathUtils.lerp(pollenVelocities[idx + 1], 0.12, 0.04);
+          pollenVelocities[idx + 2] *= 0.96;
+
+          const dx = px - mx;
+          const dy = py - my;
+          const dz = pz - mz;
+          const distSq = dx * dx + dy * dy + dz * dz;
+          if (distSq < 18.0 && distSq > 0.001) {
+            const dist = Math.sqrt(distSq);
+            const force = (1.0 - dist / 4.24) * 3.2 * dt;
+            px += (dx / dist) * force + state.mouseWorldVel.x * 0.25;
+            py += Math.abs(force) * 0.65;
+            pz += (dz / dist) * force + state.mouseWorldVel.z * 0.25;
+          }
+
+          if (i < 350) {
+            if (py > 4.6 || px * px + pz * pz > 16.0) {
+              const ang = Math.random() * Math.PI * 2;
+              const r = 0.08 + Math.random() * 0.65;
+              px = Math.cos(ang) * r;
+              py = 0.5 + state.stemGrowth * 1.85 + Math.random() * 0.35;
+              pz = Math.sin(ang) * r;
+            }
+          } else {
+            const groundY = getTerrainHeight(px, pz);
+            if (py > groundY + 6.5 || Math.abs(px) > 55 || Math.abs(pz) > 55) {
+              const ang = Math.random() * Math.PI * 2;
+              const r = 1.5 + Math.random() * 44.0;
+              px = Math.cos(ang) * r;
+              pz = Math.sin(ang) * r;
+              py = getTerrainHeight(px, pz) + 0.25;
+            }
+          }
+
+          posArr[idx] = px;
+          posArr[idx + 1] = py;
+          posArr[idx + 2] = pz;
+        }
+
+        posAttr.needsUpdate = true;
+        state.mouseWorldVel.multiplyScalar(0.85);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const dt = Math.min(clock.getDelta(), 0.05);
+        const elapsedTime = clock.getElapsedTime();
+        const effectiveWind = state.windStrength + state.windGustBoost;
+
+        skyUniforms.uTime.value = elapsedTime;
+        starMat.uniforms.uTime.value = elapsedTime;
+        heroPetalUniforms.uTime.value = elapsedTime;
+        heroPetalUniforms.uWindStrength.value = effectiveWind;
+        meadowUniforms.uTime.value = elapsedTime;
+        meadowUniforms.uWindStrength.value = effectiveWind;
+        meadowUniforms.uMousePos.value.lerp(state.mouseWorldPos, 0.18);
+        pollenMat.uniforms.uTime.value = elapsedTime;
+
+        updateAtmosphere(dt);
+        evaluateGrowthPhysicsAndCamera(state.timelineProgress, dt, elapsedTime);
+        updateFloatingSilkPetals(dt, elapsedTime);
+        updatePollenParticles(dt, elapsedTime);
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    };
+  </script>
+</body>
+</html>
